@@ -23,6 +23,7 @@ abstract final class CollabEndpoints {
       '$root/applications/$applicationId/$action';
   static String jobCompletion(String jobId) =>
       '$root/jobs/$jobId/confirm-completion';
+  static String cancelJob(String jobId) => '$root/jobs/$jobId/cancel';
   static String jobReviews(String jobId) => '$root/jobs/$jobId/reviews';
   static String actorReviews(String actorId) => '$root/actors/$actorId/reviews';
 }

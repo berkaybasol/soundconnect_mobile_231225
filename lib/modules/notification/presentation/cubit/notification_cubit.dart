@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/error/result.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../data/notification_auth_support.dart';
 import '../../data/notification_realtime_client.dart';
 import '../../domain/entities/app_notification.dart';
@@ -22,6 +23,8 @@ class NotificationCubit extends Cubit<NotificationState> {
   final AuthSessionManager? _sessions;
   final Future<void> Function()? _onDeliveryStateChanged;
   final Duration _countReconciliationTimeout;
+  final Set<String> _blockedRevealAuthors = {};
+  StreamSubscription<UserBlockChange>? _blockSubscription;
   AuthSession? _observedSession;
   bool _closing = false;
 
@@ -30,6 +33,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     this._tokenStore, {
     NotificationRealtimeClient? realtimeClient,
     AuthSessionManager? sessions,
+    Stream<UserBlockChange>? blockChanges,
     Future<void> Function()? onDeliveryStateChanged,
     Duration countReconciliationTimeout = const Duration(seconds: 15),
   }) : _realtimeClient = realtimeClient ?? NotificationRealtimeClient(),
@@ -40,6 +44,46 @@ class NotificationCubit extends Cubit<NotificationState> {
     _realtimeClient.retain();
     _observedSession = _sessions?.session;
     _sessions?.addListener(_onSessionChanged);
+    _blockSubscription = blockChanges?.listen(_onBlockChanged);
+  }
+
+  static const _revealApproval = 'OVERTHINKING_REVEAL_REQUEST_APPROVED';
+
+  void _onBlockChanged(UserBlockChange change) {
+    if (_closing ||
+        isClosed ||
+        change.actorId != (_sessions?.session.userId ?? _startedUserId)) {
+      return;
+    }
+    if (change.status.interactionBlocked) {
+      _blockedRevealAuthors.add(change.userId);
+      emit(
+        state.copyWith(items: state.items.map(_maskBlockedApproval).toList()),
+      );
+    } else {
+      _blockedRevealAuthors.remove(change.userId);
+      unawaited(refresh());
+    }
+  }
+
+  AppNotification _maskBlockedApproval(AppNotification item) {
+    if (item.type != _revealApproval ||
+        !_blockedRevealAuthors.contains(item.payload['authorId'])) {
+      return item;
+    }
+    return AppNotification(
+      id: item.id,
+      recipientId: item.recipientId,
+      type: item.type,
+      title: 'Anonim paylaşım bildirimi',
+      message: '',
+      read: item.read,
+      createdAt: item.createdAt,
+      payload: {
+        for (final key in ['module', 'action', 'postId', 'revealRequestId'])
+          if (item.payload.containsKey(key)) key: item.payload[key],
+      },
+    );
   }
 
   bool get _listener =>
@@ -194,6 +238,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
       if (_startedUserId != null) _sessionRevision += 1;
+      _blockedRevealAuthors.clear();
       _startedUserId = null;
       _realtimeRevisionById.clear();
       _confirmedReadIds.clear();
@@ -217,6 +262,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
     if (_startedUserId == currentUserId && state.initialized) return;
     final switchingUser = _startedUserId != null;
+    if (switchingUser) _blockedRevealAuthors.clear();
     _sessionRevision += 1;
     _startedUserId = currentUserId;
     _realtimeRevisionById.clear();
@@ -296,49 +342,6 @@ class NotificationCubit extends Cubit<NotificationState> {
     // it must not disconnect that account's shared realtime client.
     if (!_isCurrent(generation)) return;
     await _reconcileAfterRealtimeGap(generation);
-  }
-
-  Future<void> _reconcileAfterRealtimeGap(int generation) {
-    final inFlight = _gapReconciliationInFlight;
-    if (inFlight != null && _gapReconciliationGeneration == generation) {
-      _gapReconciliationQueued = true;
-      return inFlight;
-    }
-    if (!_isCurrent(generation)) return Future<void>.value();
-
-    final operation = _runGapReconciliationLoop(generation);
-    _gapReconciliationInFlight = operation;
-    _gapReconciliationGeneration = generation;
-    return operation.whenComplete(() {
-      if (identical(_gapReconciliationInFlight, operation)) {
-        _gapReconciliationInFlight = null;
-        _gapReconciliationGeneration = null;
-      }
-    });
-  }
-
-  Future<void> _runGapReconciliationLoop(int generation) async {
-    do {
-      _gapReconciliationQueued = false;
-      final sessionRevision = _sessionRevision;
-      await _refresh(generation, sessionRevision: sessionRevision);
-      if (_isCurrent(generation) && sessionRevision != _sessionRevision) {
-        _gapReconciliationQueued = true;
-      }
-    } while (_gapReconciliationQueued && _isCurrent(generation));
-  }
-
-  void _scheduleBadgeReconciliation(int generation, int sessionRevision) {
-    // The pending badge refresh already fetches an authoritative count.
-    _realtimeCountReconciliationTimer?.cancel();
-    _realtimeCountReconciliationTimer = null;
-    _badgeReconciliationTimer?.cancel();
-    _badgeReconciliationTimer = Timer(const Duration(milliseconds: 250), () {
-      _badgeReconciliationTimer = null;
-      if (_isCurrentSession(generation, sessionRevision)) {
-        unawaited(_reconcileAfterRealtimeGap(generation));
-      }
-    });
   }
 
   Future<void> refresh() =>
@@ -1005,6 +1008,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     _refreshSequence += 1;
     _cancelCountReconciliation();
     _startedUserId = null;
+    _blockedRevealAuthors.clear();
     // A previous audience's network request may remain pending after logout.
     // Its generation is fenced; a new session must not wait for it to finish.
     _startInFlight = null;
@@ -1064,15 +1068,17 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
-  AppNotification _withConfirmedRead(AppNotification notification) =>
-      !notification.read &&
-          (_confirmedReadIds.contains(notification.id) ||
-              (notification.type == 'DM_NEW_MESSAGE' &&
-                  _confirmedDmMessageIds.contains(
-                    notification.payload['messageId']?.toString().trim(),
-                  )))
-      ? notification.copyWith(read: true)
-      : notification;
+  AppNotification _withConfirmedRead(AppNotification notification) {
+    notification = _maskBlockedApproval(notification);
+    return !notification.read &&
+            (_confirmedReadIds.contains(notification.id) ||
+                (notification.type == 'DM_NEW_MESSAGE' &&
+                    _confirmedDmMessageIds.contains(
+                      notification.payload['messageId']?.toString().trim(),
+                    )))
+        ? notification.copyWith(read: true)
+        : notification;
+  }
 
   bool _isCurrentSession(int generation, int sessionRevision) {
     return _isCurrent(generation) && sessionRevision == _sessionRevision;
@@ -1096,6 +1102,13 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (_startedUserId == null || recipientId != _startedUserId) return;
     if (!_canShowNotification(notification)) return;
     if (_isDeleted(notification.id)) return;
+    if (notification.type == _revealApproval &&
+        !_blockedRevealAuthors.contains(notification.payload['authorId'])) {
+      // A queued approval can predate a block made on another device.
+      // Read the recipient's current projection before showing its identity.
+      unawaited(_reconcileAfterRealtimeGap(_lifecycleGeneration));
+      return;
+    }
     if (_verifyRealtimeAfterClear ||
         (_verifyUnreadRealtimeAfterBulkRead &&
             !notification.read &&
@@ -1173,6 +1186,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   Future<void> close() async {
     _closing = true;
     _sessions?.removeListener(_onSessionChanged);
+    await _blockSubscription?.cancel();
     await stop();
     await _realtimeClient.release();
     return super.close();

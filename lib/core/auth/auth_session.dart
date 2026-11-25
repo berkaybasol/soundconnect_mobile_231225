@@ -25,12 +25,18 @@ class AuthSession {
     required this.requiresListenerProfileChoice,
   });
 
-  const AuthSession.guest()
+  const AuthSession.guest() : this._signedOut(null);
+
+  /// A local notice after the server verified the account and denied access.
+  /// It deliberately contains no credential or personal account information.
+  const AuthSession.suspended() : this._signedOut('SUSPENDED');
+
+  const AuthSession._signedOut(String? status)
     : this._(
         token: null,
         userId: null,
         username: null,
-        accountStatus: null,
+        accountStatus: status,
         roles: const [],
         permissions: const [],
         expiresAt: null,
@@ -69,6 +75,9 @@ class AuthSession {
   }
 
   bool get isAuthenticated => token?.isNotEmpty == true;
+
+  bool get isSuspendedNotice =>
+      !isAuthenticated && accountStatus == 'SUSPENDED';
 
   bool get isVenueApplicationSession =>
       sessionScope == 'VENUE_APPLICATION' && applicationId != null;

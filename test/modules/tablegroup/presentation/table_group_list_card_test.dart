@@ -21,6 +21,7 @@ import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/distr
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/neighborhood.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/table_group_report_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group_participant.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_expiry_policy.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
@@ -30,8 +31,28 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screen
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/widgets/table_group_overview_style.dart';
 import 'package:soundconnect_23_12_25codx/shared/images/app_cached_network_image.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/brand_gradient_icon.dart';
+import '../../../support/recording_api_client.dart';
 
 void main() {
+  testWidgets(
+    'recent incident reporting is reachable from the open tables list even when the feed is empty',
+    (tester) async {
+      await _pumpList(tester, []);
+      final api = RecordingApiClient(
+        (_) => {'number': 0, 'size': 20, 'last': true, 'content': []},
+      );
+      serviceLocator.registerSingleton<TableGroupReportRepository>(
+        TableGroupReportRepository(api, serviceLocator<AuthSessionManager>()),
+      );
+      await tester.tap(find.text('Yakın zamanda katıldığım bir masayı bildir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Yakın zamandaki masalar'), findsOneWidget);
+      expect(find.textContaining('bulunmuyor.'), findsOneWidget);
+      expect(api.lastRequest.requestContext?.expectedSessionKey, 'viewer');
+      expect(api.lastRequest.path, '/api/v1/table-groups/reportable-recent');
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('reference card renders the compact detail-first composition', (
     tester,
   ) async {

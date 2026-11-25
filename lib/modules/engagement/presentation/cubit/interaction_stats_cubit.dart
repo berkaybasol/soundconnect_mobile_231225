@@ -54,6 +54,13 @@ class InteractionStatsCubit extends Cubit<InteractionStatsState> {
     emit(state.copyWith(items: Map.unmodifiable({...state.items, key: item})));
   }
 
+  void invalidate(String targetType, String targetId) {
+    if (isClosed) return;
+    final key = '$targetType:$targetId';
+    _inFlight.remove(key);
+    _put(key, const InteractionStatsItemState.idle());
+  }
+
   /// Seeds an authoritative batched viewer projection before the first read.
   void seed({
     required String targetType,

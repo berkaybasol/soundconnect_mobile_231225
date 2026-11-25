@@ -280,7 +280,11 @@ extension _RegisterTableNotificationTarget1 on _TableNotificationTargetCases {
     for (final type in PushTarget.tableTypes) {
       for (final reason
           in type == 'TABLE_CANCELLED'
-              ? ['OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE']
+              ? [
+                  'OWNER_CANCELLED',
+                  'OWNER_JOINED_ANOTHER_TABLE',
+                  'ADMIN_REMOVED',
+                ]
               : <String?>[null]) {
         testWidgets(
           'native TABLE $type $reason fresh terminal target and exact read',
@@ -661,7 +665,11 @@ extension _RegisterTableNotificationTarget1 on _TableNotificationTargetCases {
     for (final entry in TableNotificationTarget.actions.entries) {
       for (final reason
           in entry.key == 'TABLE_CANCELLED'
-              ? ['OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE']
+              ? [
+                  'OWNER_CANCELLED',
+                  'OWNER_JOINED_ANOTHER_TABLE',
+                  'ADMIN_REMOVED',
+                ]
               : [null]) {
         testWidgets(
           '${entry.key}/$reason uses active detail or closed origin feedback then exact read',

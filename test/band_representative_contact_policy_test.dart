@@ -1,9 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/data/models/band_member_summary_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_representative_contact_policy.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_member_summary.dart';
 
 void main() {
   group('BandRepresentativeContactPolicy', () {
+    test(
+      'an unavailable founder stays in the roster without receiving band messages',
+      () {
+        final founder = BandMemberSummaryModel.fromJson({
+          'userId': 'original',
+          'username': 'deniz',
+          'role': 'FOUNDER',
+          'status': 'ACTIVE',
+          'contactAvailable': false,
+        });
+        expect(founder.isFounder, isTrue);
+        expect(
+          BandRepresentativeContactPolicy.resolve([founder, _activeMember]),
+          isNull,
+        );
+        expect(
+          BandRepresentativeContactPolicy.resolve([founder, _activeFounder]),
+          same(_activeFounder),
+        );
+      },
+    );
     test('returns null when there is no eligible founder', () {
       expect(BandRepresentativeContactPolicy.resolve(const []), isNull);
       expect(

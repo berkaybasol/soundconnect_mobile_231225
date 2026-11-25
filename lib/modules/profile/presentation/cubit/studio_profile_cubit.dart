@@ -84,7 +84,13 @@ class StudioProfileCubit extends Cubit<StudioProfileState> {
       return;
     }
     emit(
-      state.copyWith(status: StudioProfileStatus.failure, error: result.error),
+      state.copyWith(
+        status: StudioProfileStatus.failure,
+        error: result.error,
+        profile: result.error?.isProfileUnavailable == true
+            ? null
+            : state.profile,
+      ),
     );
   }
 

@@ -10,6 +10,7 @@ import '../../../collab/domain/collab_repository.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../follow/domain/follow_repository.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../domain/backstage_feed_session.dart';
 import '../../domain/feed_item_access.dart';
 import '../../domain/musician_feed_models.dart';
@@ -71,6 +72,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     required BandFollowRepository bandFollowRepository,
     required AuthSessionManager sessions,
     MusicianFeedMuteChanges? muteChanges,
+    Stream<UserBlockChange>? blockChanges,
     EngagementRepository? announcementEngagementRepository,
     String Function()? eventIdFactory,
     this.pageSize = 20,
@@ -84,6 +86,13 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
        assert(pageSize > 0 && pageSize <= 30),
        super(const MusicianFeedState()) {
     _unmuteSubscription = muteChanges?.unmuted.listen(_authorUnmutedElsewhere);
+    _blockSubscription = blockChanges?.listen((change) {
+      if (!isClosed &&
+          _sessionIdentity?.userId == change.actorId &&
+          state.status != MusicianFeedStatus.initial) {
+        unawaited(_loadFirst(keepItems: false));
+      }
+    });
   }
 
   static const AppError _invalidPage = AppError(
@@ -112,6 +121,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   final AuthSessionManager _sessions;
   final String Function() _eventIdFactory;
   final int pageSize;
+  StreamSubscription<UserBlockChange>? _blockSubscription;
   StreamSubscription<MusicianFeedAuthorUnmuted>? _unmuteSubscription;
   final Map<MusicianFeedAuthorProfileIdentity, _MuteOperation> _muteOperations =
       <MusicianFeedAuthorProfileIdentity, _MuteOperation>{};
@@ -204,10 +214,8 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     if (!result.isSuccess || page == null) {
       final error = result.error ?? _unknownLoadError;
       if (error.code == musicianFeedCursorInvalidCode) {
-        // A cursor rejected after a deploy or algorithm transition can never
-        // succeed when retried verbatim. Preserve the visible page while
-        // starting a clean first-page session.
-        await _loadFirst(keepItems: true);
+        // The cached page may include an identity the viewer can no longer see.
+        await _loadFirst(keepItems: false);
         return;
       }
       _notice(error, loadMore: true);
@@ -899,6 +907,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   Future<void> close() {
     _generation += 1;
     unawaited(_unmuteSubscription?.cancel());
+    unawaited(_blockSubscription?.cancel());
     _muteOperations.clear();
     for (final operation in _engagementOperations.values) {
       if (!operation.finished.isCompleted) operation.finished.complete();

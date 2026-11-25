@@ -322,22 +322,32 @@ class _BandProfileViewState extends State<_BandProfileView> {
     if (!hasViewer || representative == null) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 32),
-        child: Center(
-          child: GradientOutlineButton(
-            label: _bandFollowLoading
-                ? 'Bekle...'
-                : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
-            loading: _bandFollowLoading,
-            leading: Icon(
-              _isFollowingBand
-                  ? Icons.check_circle_outline
-                  : Icons.person_add_alt_1,
-              size: 18,
+        child: Column(
+          children: [
+            if (representative == null)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Grup şu anda iletişime açık değil.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            GradientOutlineButton(
+              label: _bandFollowLoading
+                  ? 'Bekle...'
+                  : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
+              loading: _bandFollowLoading,
+              leading: Icon(
+                _isFollowingBand
+                    ? Icons.check_circle_outline
+                    : Icons.person_add_alt_1,
+                size: 18,
+              ),
+              onPressed: hasViewer && !_bandFollowLoading
+                  ? () => _toggleBandFollow(profile.id)
+                  : null,
             ),
-            onPressed: hasViewer && !_bandFollowLoading
-                ? () => _toggleBandFollow(profile.id)
-                : null,
-          ),
+          ],
         ),
       );
     }

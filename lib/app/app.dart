@@ -14,6 +14,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/auth/auth_session_manager.dart';
+import '../core/auth/session_access_monitor.dart';
+import '../core/realtime/realtime_client_error.dart';
+import '../modules/notification/data/notification_realtime_client.dart';
+import '../modules/auth/presentation/screens/account_suspended_screen.dart';
 import '../core/auth/jwt_claims.dart';
 import '../core/deep_link/app_deep_link.dart';
 import '../core/deep_link/app_deep_link_policy.dart';
@@ -31,8 +35,12 @@ import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
+import '../modules/event/presentation/screens/event_discovery_screen.dart';
 import 'backstage_home_screen.dart';
-import '../modules/profile/presentation/screens/listener_profile_screen.dart';
+import '../modules/profile/presentation/profile_visual_theme.dart';
+import '../modules/profile/presentation/screens/musician_profile_screen.dart';
+import '../modules/profile/presentation/screens/studio_profile_screen.dart';
+import '../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../modules/profile/domain/profile_media_upload_repository.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
@@ -50,7 +58,10 @@ enum AppLaunchTarget {
   guest,
   login,
   home,
-  listener,
+  musicianProfile,
+  venueProfile,
+  studioProfile,
+  eventDiscovery,
   listenerProfileChoice,
   admin,
   venuePending,
@@ -72,18 +83,20 @@ String? resolveSessionChangeNavigationRoute({
   AuthSession? previousSession,
   bool accountResetPending = false,
 }) {
+  if (current.isSuspendedNotice) return AppRoutes.accountSuspended;
+  if (previousSession?.isSuspendedNotice == true) return AppRoutes.login;
   if (wasAuthenticated && !current.isAuthenticated) return AppRoutes.login;
   final approvalRoute = resolveMembershipApprovalRoute(
     previousSession,
     current,
   );
   if (approvalRoute != null) return approvalRoute;
-  if (accountResetPending) return AppRouteGuard.startRouteFor(current);
+  if (accountResetPending) return AppRouteGuard.landingRouteFor(current);
   if (wasAuthenticated &&
       current.isAuthenticated &&
       ((previousUserId != null && previousUserId != current.userId) ||
           (previousToken != null && previousToken != current.token))) {
-    return AppRouteGuard.startRouteFor(current);
+    return AppRouteGuard.landingRouteFor(current);
   }
   if (current.isAuthenticated &&
       current.requiresListenerProfileChoice &&
@@ -119,12 +132,15 @@ AppLaunchTarget resolveLaunchTarget(String? token, {DateTime? now}) {
 
 AppLaunchTarget resolveSessionLaunchTarget(AuthSession session) {
   if (!session.isAuthenticated) return AppLaunchTarget.guest;
-  return switch (AppRouteGuard.startRouteFor(session)) {
+  return switch (AppRouteGuard.landingRouteFor(session)) {
     AppRoutes.venuePending => AppLaunchTarget.venuePending,
     AppRoutes.studioPending => AppLaunchTarget.studioPending,
     AppRoutes.studioRejected => AppLaunchTarget.studioRejected,
     AppRoutes.adminDashboard => AppLaunchTarget.admin,
-    AppRoutes.listenerProfile => AppLaunchTarget.listener,
+    AppRoutes.musicianProfile => AppLaunchTarget.musicianProfile,
+    AppRoutes.venueProfile => AppLaunchTarget.venueProfile,
+    AppRoutes.studioProfile => AppLaunchTarget.studioProfile,
+    AppRoutes.eventDiscovery => AppLaunchTarget.eventDiscovery,
     AppRoutes.listenerProfileChoice => AppLaunchTarget.listenerProfileChoice,
     AppRoutes.home => AppLaunchTarget.home,
     _ => AppLaunchTarget.login,
@@ -147,9 +163,15 @@ class SoundConnectApp extends StatefulWidget {
   State<SoundConnectApp> createState() => _SoundConnectAppState();
 }
 
-class _SoundConnectAppState extends State<SoundConnectApp> {
+class _SoundConnectAppState extends State<SoundConnectApp>
+    with WidgetsBindingObserver {
   late final Future<AuthSession> _initialSessionFuture;
   late final AuthSessionManager _sessionManager;
+  late final SessionAccessMonitor _access;
+  StreamSubscription<RealtimeClientError>? _socketErrors;
+  bool _showLoginAtRoot = false;
+  bool _navigatorShown = false;
+  Future<void>? _suspendedLinkCleanup;
   late final AppDeepLinkInbox _appDeepLinkInbox;
   late final _CurrentRouteObserver _routeObserver;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
@@ -175,6 +197,18 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
   void initState() {
     super.initState();
     _sessionManager = serviceLocator<AuthSessionManager>();
+    _access = SessionAccessMonitor(_sessionManager);
+    WidgetsBinding.instance.addObserver(this);
+    _access.addListener(_schedulePendingLinkProcessing);
+    if (_sessionManager.verifyAccess != null &&
+        serviceLocator.isRegistered<NotificationRealtimeClient>()) {
+      _socketErrors = serviceLocator<NotificationRealtimeClient>().errorStream
+          .listen((error) {
+            if (error.type != RealtimeClientErrorType.invalidPayload) {
+              _access.onSocketLoss();
+            }
+          });
+    }
     _appDeepLinkInbox =
         widget.appDeepLinkInbox ?? serviceLocator<AppDeepLinkInbox>();
     _routeObserver = _CurrentRouteObserver(_schedulePendingLinkProcessing);
@@ -211,6 +245,10 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_socketErrors?.cancel());
+    _access.removeListener(_schedulePendingLinkProcessing);
+    _access.dispose();
     _sessionManager.removeListener(_onSessionChanged);
     _push?.removeListener(_schedulePendingLinkProcessing);
     unawaited(_appLinkSubscription?.cancel());
@@ -218,6 +256,7 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
   }
 
   Future<void> _onIncomingAppLink(Uri uri) async {
+    if (_sessionManager.session.isSuspendedNotice) return;
     final target = AppDeepLinkParser.parse(uri);
     if (target == null) return;
     final recorded = await _appDeepLinkInbox.record(target);
@@ -240,6 +279,8 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
 
   Future<void> _processPendingPush() async {
     if (!mounted ||
+        _access.blocksContent ||
+        _sessionManager.session.isSuspendedNotice ||
         !_sessionRestoreCompleted ||
         _pushNavigationInFlight ||
         _routeObserver.currentRouteName == AppRoutes.login) {
@@ -313,7 +354,11 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
   }
 
   Future<void> _processPendingAppLink() async {
-    if (!_sessionRestoreCompleted) return;
+    if (!_sessionRestoreCompleted ||
+        _access.blocksContent ||
+        _sessionManager.session.isSuspendedNotice) {
+      return;
+    }
     if (_processingPendingLink) {
       _processPendingLinkAgain = true;
       return;
@@ -331,7 +376,12 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
 
   Future<void> _processPendingAppLinkOnce() async {
     final pending = await _appDeepLinkInbox.pending();
-    if (!mounted || pending == null) return;
+    if (!mounted ||
+        pending == null ||
+        _access.blocksContent ||
+        _sessionManager.session.isSuspendedNotice) {
+      return;
+    }
     final navigator = _navigatorKey.currentState;
     if (navigator == null) {
       _schedulePendingLinkProcessing();
@@ -362,7 +412,9 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
     final claim = await _appDeepLinkInbox.claim();
     if (claim.status != AppDeepLinkClaimStatus.acquired) return;
     final claimed = claim.link!;
-    if (!mounted) {
+    if (!mounted ||
+        _access.blocksContent ||
+        !identical(_sessionManager.session, session)) {
       await _appDeepLinkInbox.release(claimed);
       return;
     }
@@ -406,6 +458,18 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
 
   void _onSessionChanged() {
     final session = _sessionManager.session;
+    if (session.isSuspendedNotice) {
+      _showLoginAtRoot = true;
+      _navigatorShown = false;
+      _suspendedLinkCleanup = _discardSuspendedLink();
+      _messengerKey.currentState?.clearSnackBars();
+    }
+    if (_wasAuthenticated && !session.isAuthenticated) _showLoginAtRoot = true;
+    if (session.isSuspendedNotice ||
+        _previousSession?.isSuspendedNotice == true ||
+        (_wasAuthenticated && !session.isAuthenticated)) {
+      setState(() {});
+    }
     final isAuthenticated = session.isAuthenticated;
     final listenerChoiceRequired =
         isAuthenticated && session.requiresListenerProfileChoice;
@@ -440,6 +504,8 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
     _sessionRouteResetPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
+          _sessionManager.session.isSuspendedNotice !=
+              session.isSuspendedNotice ||
           _sessionManager.session.token != session.token ||
           _sessionManager.session.userId != session.userId) {
         return;
@@ -467,6 +533,29 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
     });
   }
 
+  Future<void> _discardSuspendedLink() async {
+    final pending = await _appDeepLinkInbox.pending();
+    if (pending != null && _sessionManager.session.isSuspendedNotice) {
+      await _appDeepLinkInbox.complete(pending);
+    }
+  }
+
+  Future<void> _returnFromSuspension() async {
+    await _suspendedLinkCleanup;
+    if (mounted) await _sessionManager.dismissSuspension();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _access.setForeground(true);
+    } else if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _access.setForeground(false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<AuthSession>(
@@ -488,6 +577,7 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
             ),
           ],
           child: _NotificationBootstrap(
+            access: _access,
             child: ListenableBuilder(
               listenable: AppThemeController.instance,
               builder: (context, _) => MaterialApp(
@@ -507,11 +597,63 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
                     : ThemeMode.dark,
                 themeAnimationDuration: Duration.zero,
                 onGenerateRoute: AppRouter.onGenerateRoute,
+                builder: (context, navigator) => ListenableBuilder(
+                  listenable: Listenable.merge([_sessionManager, _access]),
+                  builder: (context, _) {
+                    if (_sessionManager.session.isSuspendedNotice) {
+                      return AccountSuspendedScreen(
+                        onReturnToLogin: _returnFromSuspension,
+                      );
+                    }
+                    final blocked = _access.blocksContent;
+                    // Retain the active route during a resume check. On cold start,
+                    // postpone building private screens until their bearer is verified.
+                    if (!blocked && !waitingForToken) _navigatorShown = true;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (!blocked || _navigatorShown)
+                          Offstage(
+                            offstage: blocked,
+                            child: ExcludeFocus(
+                              excluding: blocked,
+                              child: TickerMode(
+                                enabled: !blocked,
+                                child: navigator!,
+                              ),
+                            ),
+                          ),
+                        if (blocked)
+                          _access.state == SessionAccessState.unavailable
+                              ? SessionAccessUnavailableScreen(
+                                  onRetry: _access.check,
+                                )
+                              : const _LaunchLoadingScreen(),
+                      ],
+                    );
+                  },
+                ),
                 home: waitingForToken
                     ? _LaunchLoadingScreen()
+                    : _showLoginAtRoot &&
+                          !_sessionManager.session.isAuthenticated
+                    ? LoginScreen()
                     : switch (launchTarget) {
                         AppLaunchTarget.home => const BackstageHomeScreen(),
-                        AppLaunchTarget.listener => ListenerProfileScreen(),
+                        AppLaunchTarget.musicianProfile =>
+                          const ProfileVisualThemeScope(
+                            child: MusicianProfileScreen(),
+                          ),
+                        AppLaunchTarget.venueProfile =>
+                          const ProfileVisualThemeScope(
+                            child: VenueProfileScreen(),
+                          ),
+                        AppLaunchTarget.studioProfile =>
+                          const ProfileVisualThemeScope(
+                            child: StudioProfileScreen(),
+                          ),
+                        AppLaunchTarget.eventDiscovery =>
+                          const MemberEventDiscoveryScreen(),
                         AppLaunchTarget.listenerProfileChoice =>
                           const ListenerProfileChoiceScreen(),
                         AppLaunchTarget.admin => const AdminDashboardScreen(),
@@ -574,8 +716,9 @@ class _CurrentRouteObserver extends NavigatorObserver {
 
 class _NotificationBootstrap extends StatefulWidget {
   final Widget child;
+  final SessionAccessMonitor access;
 
-  const _NotificationBootstrap({required this.child});
+  const _NotificationBootstrap({required this.child, required this.access});
 
   @override
   State<_NotificationBootstrap> createState() => _NotificationBootstrapState();
@@ -592,6 +735,7 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
     _sessionManager = serviceLocator<AuthSessionManager>();
     WidgetsBinding.instance.addObserver(this);
     _sessionManager.addListener(_syncNotifications);
+    widget.access.addListener(_syncNotifications);
     unawaited(_syncNotifications());
   }
 
@@ -600,12 +744,15 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
     _syncGeneration += 1;
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.removeListener(_syncNotifications);
+    widget.access.removeListener(_syncNotifications);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
+    if (state != AppLifecycleState.resumed || widget.access.blocksContent) {
+      return;
+    }
     if (_sessionManager.session.canRegisterPush &&
         serviceLocator.isRegistered<PushCoordinator>()) {
       unawaited(serviceLocator<PushCoordinator>().reconcile());
@@ -621,6 +768,7 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
 
   Future<void> _syncNotifications() async {
     final generation = ++_syncGeneration;
+    if (widget.access.blocksContent) return;
     final cubit = serviceLocator<NotificationCubit>();
     if (shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
       await cubit.ensureStarted();

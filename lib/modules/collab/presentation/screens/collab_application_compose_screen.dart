@@ -106,12 +106,19 @@ class _CollabApplicationComposeScreenState
         final error = state.actionError;
         if (error != null) _showMessage(error.message);
       },
-      builder: (context, state) =>
-          _buildScaffold(context, submitting: state.isApplying),
+      builder: (context, state) => _buildScaffold(
+        context,
+        submitting: state.isApplying,
+        canApply: state.listing?.canApply == true,
+      ),
     );
   }
 
-  Widget _buildScaffold(BuildContext context, {required bool submitting}) {
+  Widget _buildScaffold(
+    BuildContext context, {
+    required bool submitting,
+    required bool canApply,
+  }) {
     final theme = Theme.of(context);
     final hasMultipleEligibleActors = widget.eligibleActors.length > 1;
     final isApplyingAsBand = _actor.profileType == CollabProfileKind.band;
@@ -228,7 +235,7 @@ class _CollabApplicationComposeScreenState
                   label: 'Başvuruyu Gönder',
                   icon: Icons.send_outlined,
                   busy: submitting,
-                  onPressed: submitting ? null : _submit,
+                  onPressed: submitting || !canApply ? null : _submit,
                 ),
                 const SizedBox(height: 9),
                 CollabOutlineAction(

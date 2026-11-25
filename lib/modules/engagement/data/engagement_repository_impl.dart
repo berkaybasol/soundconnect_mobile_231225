@@ -140,6 +140,15 @@ class EngagementRepositoryImpl implements EngagementRepository {
       final username = entry['username'];
       final avatarUrl = entry['avatarUrl'];
       final visibilityMode = entry['visibilityMode'];
+      if (id == null &&
+          username == 'Anonymous Author' &&
+          avatarUrl == null &&
+          visibilityMode == null) {
+        items.add(
+          const CommentUserSummary(id: '', username: 'Anonim', avatarUrl: null),
+        );
+        continue;
+      }
       if (id is! String ||
           username is! String ||
           username.trim().isEmpty ||

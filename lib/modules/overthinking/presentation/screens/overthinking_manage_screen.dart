@@ -15,6 +15,7 @@ import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../domain/entities/overthinking_post.dart';
 import '../../domain/entities/overthinking_reveal_request.dart';
 import '../../domain/overthinking_repository.dart';
@@ -100,6 +101,7 @@ class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
   late final TabController _tabs;
   late int _lastSelectedTab;
   bool _missingRequestShown = false;
+  StreamSubscription<UserBlockChange>? _blockChanges;
 
   @override
   void initState() {
@@ -114,6 +116,25 @@ class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
     _tabs.addListener(_tabChanged);
     if (_tabs.index == 1) _markIncomingSeen();
     WidgetsBinding.instance.addObserver(this);
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockChanges = serviceLocator<UserBlockRepository>().changes.listen((
+        change,
+      ) {
+        if (!mounted ||
+            !overthinkingSession.canWrite ||
+            change.actorId != overthinkingSession.userId) {
+          return;
+        }
+        setState(() {
+          _incoming.invalidateRead();
+          _sent.invalidateRead();
+          _incoming.items = [];
+          _sent.items = [];
+        });
+        unawaited(_loadIncoming());
+        unawaited(_loadSent());
+      });
+    }
     _loadPosts();
     _loadIncoming();
     _loadSent();
@@ -121,6 +142,7 @@ class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
 
   @override
   void dispose() {
+    _blockChanges?.cancel();
     _tabs.removeListener(_tabChanged);
     _tabs.dispose();
     WidgetsBinding.instance.removeObserver(this);

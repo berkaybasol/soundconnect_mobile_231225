@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/error/app_error.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../data/dm_auth_support.dart';
 import '../../data/dm_realtime_client.dart';
 import '../../domain/dm_repository.dart';
@@ -19,6 +20,9 @@ class DmChatCubit extends Cubit<DmChatState> {
   final DmRealtimeClient _realtimeClient;
   final FutureOr<void> Function(String messageId)? _onReadAcknowledged;
   final AuthSessionManager? _sessions;
+  final UserBlockRepository? _blocks;
+  StreamSubscription<UserBlockChange>? _blockSubscription;
+  int _blockRevision = 0;
   String? _ownerToken;
   String? _ownerId;
   String? _pendingSendContent;
@@ -30,14 +34,25 @@ class DmChatCubit extends Cubit<DmChatState> {
     DmRealtimeClient? realtimeClient,
     FutureOr<void> Function(String messageId)? onReadAcknowledged,
     AuthSessionManager? sessions,
+    UserBlockRepository? blocks,
   }) : _realtimeClient = realtimeClient ?? DmRealtimeClient(),
        _sessions = sessions,
+       _blocks = blocks,
        _onReadAcknowledged = onReadAcknowledged,
        super(const DmChatState.idle()) {
     _realtimeClient.retain();
     _ownerToken = sessions?.session.token;
     _ownerId = sessions?.session.userId;
     sessions?.addListener(_onSessionChanged);
+    _blockSubscription = blocks?.changes.listen((change) {
+      if (!isClosed &&
+          _sessionValid &&
+          change.userId == _otherUserId &&
+          change.actorId == (_ownerId ?? _currentUserId)) {
+        _blockRevision++;
+        _applyBlockStatus(change.status);
+      }
+    });
     _realtimeSubscription = _realtimeClient.messageStream.listen(
       _onRealtimeMessage,
     );
@@ -86,6 +101,48 @@ class DmChatCubit extends Cubit<DmChatState> {
   /// a newly received message to be acknowledged before its frame is presented.
   void requirePresentedHistory() => _presentedHistory ??= <String>{};
 
+  void _applyBlockStatus(UserBlockStatus status) {
+    final target = _otherUserId;
+    final reopen =
+        state.interactionBlocked &&
+        !status.interactionBlocked &&
+        state.conversationId == null &&
+        state.status == DmChatStatus.failure;
+    emit(
+      state.copyWith(
+        blockedByMe: status.blockedByMe,
+        interactionBlocked: status.interactionBlocked,
+        blockStatusKnown: true,
+      ),
+    );
+    if (reopen && target != null) {
+      unawaited(
+        openOrCreateConversation(
+          otherUserId: target,
+          currentUserId: _currentUserId,
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshBlockStatus() async {
+    final blocks = _blocks;
+    final target = _otherUserId;
+    if (blocks == null || target == null || state.recipientDeleted) return;
+    final generation = _generation;
+    final revision = ++_blockRevision;
+    final result = await blocks.status(target);
+    if (isClosed || generation != _generation || revision != _blockRevision) {
+      return;
+    }
+    final status = result.data;
+    if (status != null) {
+      _applyBlockStatus(status);
+    } else if (!state.blockStatusKnown) {
+      emit(state.copyWith(error: result.error));
+    }
+  }
+
   Future<void> acknowledgePresentedHistory(Iterable<String> messageIds) async {
     final presented = _presentedHistory;
     if (presented == null || !_visible || !_sessionValid || isClosed) return;
@@ -132,6 +189,9 @@ class DmChatCubit extends Cubit<DmChatState> {
         hasNext: false,
         error: null,
         recipientDeleted: recipientDeleted,
+        interactionBlocked: false,
+        blockedByMe: false,
+        blockStatusKnown: _blocks == null || recipientDeleted,
       ),
     );
     final conversationResult = await _repository.getOrCreateConversation(
@@ -139,15 +199,20 @@ class DmChatCubit extends Cubit<DmChatState> {
     );
     if (isClosed || generation != _generation) return;
     if (!conversationResult.isSuccess || conversationResult.data == null) {
+      final blocked =
+          conversationResult.error?.isInteractionUnavailable ?? false;
       emit(
         state.copyWith(
           status: DmChatStatus.failure,
-          error: conversationResult.error,
+          error: blocked ? null : conversationResult.error,
+          interactionBlocked: blocked || state.interactionBlocked,
+          blockStatusKnown: blocked || state.blockStatusKnown,
           recipientDeleted:
               recipientDeleted ||
               _deletedAccount(conversationResult.error?.code),
         ),
       );
+      await _refreshBlockStatus();
       return;
     }
     final conversationId = conversationResult.data!;
@@ -158,6 +223,7 @@ class DmChatCubit extends Cubit<DmChatState> {
 
   Future<void> refresh() async {
     if (isClosed || !_sessionValid) return;
+    unawaited(_refreshBlockStatus());
     final generation = _generation;
     final sequence = ++_refreshSequence;
     final revision = _messageRevision;
@@ -258,7 +324,12 @@ class DmChatCubit extends Cubit<DmChatState> {
   }
 
   Future<bool> send(String content) async {
-    if (isClosed || !_sessionValid || state.sending || state.recipientDeleted) {
+    if (isClosed ||
+        !_sessionValid ||
+        state.sending ||
+        state.recipientDeleted ||
+        !state.blockStatusKnown ||
+        state.interactionBlocked) {
       return false;
     }
     final generation = _generation;
@@ -297,13 +368,18 @@ class DmChatCubit extends Cubit<DmChatState> {
     );
     if (isClosed || generation != _generation) return false;
     if (!sendResult.isSuccess || sendResult.data == null) {
+      final blocked = sendResult.error?.isInteractionUnavailable ?? false;
+      if (blocked) _blockRevision++;
       emit(
         state.copyWith(
           sending: false,
-          error: sendResult.error,
+          error: blocked ? null : sendResult.error,
+          interactionBlocked: blocked || state.interactionBlocked,
+          blockStatusKnown: blocked || state.blockStatusKnown,
           recipientDeleted: _deletedAccount(sendResult.error?.code),
         ),
       );
+      if (blocked) await _refreshBlockStatus();
       return false;
     }
     _currentUserId ??= sendResult.data!.senderId.trim().isEmpty
@@ -437,7 +513,7 @@ class DmChatCubit extends Cubit<DmChatState> {
   }
 
   void _onRealtimeMessage(DmMessage incoming) {
-    if (incoming.deletedAt != null) return;
+    if (incoming.deletedAt != null || state.interactionBlocked) return;
     final activeConversationId = state.conversationId?.trim() ?? '';
     if (activeConversationId.isEmpty) return;
     if (incoming.conversationId.trim() != activeConversationId) return;
@@ -477,6 +553,7 @@ class DmChatCubit extends Cubit<DmChatState> {
     _generation++;
     _visible = false;
     await _realtimeSubscription?.cancel();
+    await _blockSubscription?.cancel();
     await _realtimeClient.release();
     return super.close();
   }

@@ -26,8 +26,8 @@ void main() {
     );
     final materialApp = MaterialApp(
       routes: <String, WidgetBuilder>{
-        AppRoutes.listenerProfile: (_) =>
-            const Scaffold(body: Text('listener-profile-target')),
+        AppRoutes.eventDiscovery: (_) =>
+            const Scaffold(body: Text('event-discovery-target')),
         AppRoutes.login: (_) => const Scaffold(body: Text('login-target')),
       },
       home: screen,
@@ -141,7 +141,7 @@ void main() {
       expect(repository.updateCalls, 1);
       expect(repository.lastRequest?.visibilityMode, scenario.mode);
       expect(repository.lastRequest?.expectedVersion, 7);
-      expect(find.text('listener-profile-target'), findsOneWidget);
+      expect(find.text('event-discovery-target'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -166,7 +166,7 @@ void main() {
       Result.success(_profile(ListenerVisibilityMode.ghost, true)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('listener-profile-target'), findsOneWidget);
+    expect(find.text('event-discovery-target'), findsOneWidget);
   });
 
   testWidgets('failed mutation stays on the chooser and can be retried', (
@@ -183,7 +183,7 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('çok sık değiştirdin'), findsOneWidget);
-    expect(find.text('listener-profile-target'), findsNothing);
+    expect(find.text('event-discovery-target'), findsNothing);
 
     repository.updateResult = Result.success(
       _profile(ListenerVisibilityMode.ghost, true),
@@ -191,7 +191,7 @@ void main() {
     await tester.tap(find.byKey(const Key('listener-choice-ghost')));
     await tester.pumpAndSettle();
     expect(repository.updateCalls, 2);
-    expect(find.text('listener-profile-target'), findsOneWidget);
+    expect(find.text('event-discovery-target'), findsOneWidget);
   });
 
   testWidgets('two-column design remains usable at 320px and 200% text', (
@@ -231,7 +231,7 @@ void main() {
       repository.lastRequest?.visibilityMode,
       ListenerVisibilityMode.standard,
     );
-    expect(find.text('listener-profile-target'), findsOneWidget);
+    expect(find.text('event-discovery-target'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -315,7 +315,7 @@ void main() {
     await tester.tap(find.byKey(const Key('listener-choice-social')));
     await tester.pumpAndSettle();
     expect(repository.updateCalls, 2);
-    expect(find.text('listener-profile-target'), findsOneWidget);
+    expect(find.text('event-discovery-target'), findsOneWidget);
   });
 
   testWidgets(
@@ -341,7 +341,7 @@ void main() {
 
       expect(completionCalls, 1);
       expect(repository.updateCalls, 0);
-      expect(find.text('listener-profile-target'), findsOneWidget);
+      expect(find.text('event-discovery-target'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

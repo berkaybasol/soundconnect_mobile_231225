@@ -17,6 +17,7 @@ class CollabJob {
     this.publisherConfirmedAt,
     this.applicantConfirmedAt,
     this.completedAt,
+    this.interactionBlocked = false,
   });
 
   final String id;
@@ -32,6 +33,8 @@ class CollabJob {
   final DateTime? applicantConfirmedAt;
   final DateTime? completedAt;
   final bool reviewedByMe;
+  final bool interactionBlocked;
 
+  bool get isActive => status == CollabJobStatus.active;
   bool get isCompleted => status == CollabJobStatus.completed;
 }

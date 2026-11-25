@@ -21,6 +21,7 @@ import 'package:soundconnect_23_12_25codx/core/push/push_delivery_api.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_installation_store.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_application_decision_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/widgets/membership_pending_view.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
@@ -37,6 +38,7 @@ const _nid = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const _other = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const _venue = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const _base = '/api/v1/venue-application-session/applications/$applicationId';
+const _reason = 'Adres bilgisi doğrulanamadı.';
 PushTarget _target(String decision) => PushTarget(
   notificationId: _nid,
   recipientId: applicantId,
@@ -78,6 +80,10 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Current owned venue'), findsOneWidget);
+        expect(
+          find.text(_reason),
+          decision == 'REJECTED' ? findsOneWidget : findsNothing,
+        );
         expect(f.api.readIds, [_nid]);
         expect(f.api.unread, {_other});
         expect(
@@ -103,11 +109,94 @@ void main() {
   }
 
   testWidgets(
+    'venue applicant sees the studio waiting layout while loading and refreshes in place',
+    (tester) async {
+      f.api.decision = 'PENDING';
+      f.api.detailGate = Completer<void>();
+      await f.mount(tester, settle: false);
+
+      final heading = find.text('Hesabın inceleniyor...');
+      final refresh = find.text('Başvuru durumunu kontrol et');
+      final notice = find.text('Başvurunun incelemesi sürüyor.');
+      expect(find.byType(MembershipPendingView), findsOneWidget);
+      expect(heading, findsOneWidget);
+      expect(find.byIcon(Icons.verified_outlined), findsOneWidget);
+      expect(find.textContaining('üyeliğini incelemeye aldık'), findsOneWidget);
+      expect(
+        find.textContaining('destek@soundconnect.com.tr', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('WhatsApp üzerinden', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('Giriş ekranına dön'), findsOneWidget);
+
+      f.api.detailGate!.complete();
+      await tester.pumpAndSettle();
+      expect(heading, findsOneWidget);
+      expect(notice, findsNothing);
+      expect(find.text('Sonuç bildirimlerini aç'), findsOneWidget);
+      final before = f.api.calls.where((path) => path == _base).length;
+      await tester.ensureVisible(refresh);
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+
+      expect(f.api.calls.where((path) => path == _base), hasLength(before + 1));
+      expect(notice, findsOneWidget);
+      expect(heading, findsOneWidget);
+      expect(f.sessions.session.isVenueApplicationSession, isTrue);
+      expect(f.api.readIds, isEmpty);
+      expect(f.api.promotions, 0);
+
+      final leave = find.text('Giriş ekranına dön');
+      await tester.ensureVisible(leave);
+      await tester.tap(leave);
+      await tester.pumpAndSettle();
+      expect(f.sessions.session.isAuthenticated, isFalse);
+      expect(heading, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'pending home reloads a first response discarded behind another route',
+    (tester) async {
+      f.api.decision = 'PENDING';
+      f.api.detailGate = Completer<void>();
+      await f.mount(tester, settle: false);
+      final navigator = Navigator.of(
+        tester.element(find.byType(MembershipPendingView)),
+      );
+      expect(f.api.calls.where((path) => path == _base), hasLength(1));
+      unawaited(
+        navigator.push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('covered')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      f.api.detailGate!.complete();
+      await tester.pumpAndSettle();
+      f.api.decision = 'REJECTED';
+      navigator.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mekân başvurun reddedildi.'), findsOneWidget);
+      expect(f.api.calls.where((path) => path == _base), hasLength(2));
+      expect(f.api.readIds, isEmpty);
+      expect(f.api.promotions, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'pending restore enrolls narrowly and foreground decision refresh never starts general services',
     (tester) async {
       f.api.decision = 'PENDING';
       await f.mount(tester);
-      expect(find.text('Mekân başvurun inceleniyor.'), findsOneWidget);
+      expect(find.text('Hesabın inceleniyor...'), findsOneWidget);
       expect(f.api.registrations, hasLength(1));
       expect(
         AppRouteGuard.redirectFor(
@@ -353,6 +442,7 @@ void main() {
       f.provider.initial = _target('REJECTED');
       await f.mount(tester);
       expect(find.text('Mekân başvurun reddedildi.'), findsNothing);
+      expect(find.text(_reason), findsNothing);
       expect(find.text('Tekrar dene'), findsOneWidget);
       expect(f.api.readIds, isEmpty);
       expect(f.api.unread, {_nid, _other});
@@ -736,6 +826,7 @@ class _Api extends Fake implements ApiClient {
         'applicantUserId': defect == 'recipient' ? _other : applicantId,
         'status': defect == 'status' ? 'PENDING' : decision,
         'venueName': 'Current owned venue',
+        'rejectionReason': _reason,
         'venueId': decision == 'APPROVED' ? _venue : null,
       };
     } else if (path == '$_base/promote') {

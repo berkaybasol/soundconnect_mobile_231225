@@ -289,6 +289,7 @@ class PushTarget {
                 : type == 'TABLE_CANCELLED'
                 ? !const {
                     'OWNER_CANCELLED',
+                    'ADMIN_REMOVED',
                     'OWNER_JOINED_ANOTHER_TABLE',
                   }.contains(data['displayVariant'])
                 : data['displayVariant'] != 'DEFAULT')) {

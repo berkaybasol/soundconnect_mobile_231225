@@ -50,8 +50,16 @@ void main() {
       final controller = tester
           .widget<BetterPlayer>(find.byType(BetterPlayer))
           .controller;
-      expect(controller.betterPlayerConfiguration.looping, looping);
-      final emit = controller.betterPlayerConfiguration.eventListener!;
+      final configuration = controller.betterPlayerConfiguration;
+      expect(configuration.looping, looping);
+      expect(configuration.autoDetectFullscreenDeviceOrientation, isFalse);
+      expect(configuration.deviceOrientationsOnFullScreen, [
+        DeviceOrientation.portraitUp,
+      ]);
+      expect(configuration.deviceOrientationsAfterFullScreen, [
+        DeviceOrientation.portraitUp,
+      ]);
+      final emit = configuration.eventListener!;
       emit(BetterPlayerEvent(BetterPlayerEventType.finished));
       emit(
         BetterPlayerEvent(

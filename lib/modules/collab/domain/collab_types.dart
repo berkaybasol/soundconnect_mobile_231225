@@ -174,18 +174,26 @@ extension CollabApplicationStatusX on CollabApplicationStatus {
   };
 }
 
-enum CollabJobStatus { active, completed }
+enum CollabJobStatus { active, completed, cancelled }
 
 extension CollabJobStatusX on CollabJobStatus {
   String get apiValue => switch (this) {
     CollabJobStatus.active => 'ACTIVE',
     CollabJobStatus.completed => 'COMPLETED',
+    CollabJobStatus.cancelled => 'CANCELLED',
   };
 }
 
 enum CollabReportReason { spam, inappropriate, misleading, other }
 
 extension CollabReportReasonX on CollabReportReason {
+  String get label => switch (this) {
+    CollabReportReason.spam => 'Spam veya tekrar eden ilan',
+    CollabReportReason.inappropriate => 'Uygunsuz içerik',
+    CollabReportReason.misleading => 'Yanıltıcı veya hatalı ilan',
+    CollabReportReason.other => 'Diğer',
+  };
+
   String get apiValue => switch (this) {
     CollabReportReason.spam => 'SPAM',
     CollabReportReason.inappropriate => 'INAPPROPRIATE',

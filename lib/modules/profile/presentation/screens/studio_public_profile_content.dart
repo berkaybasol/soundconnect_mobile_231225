@@ -38,7 +38,15 @@ class _StudioPublicDashboardContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _StudioTopChrome(onBack: onBack, onMenu: null),
+          _StudioTopChrome(
+            onBack: onBack,
+            onMenu: null,
+            trailing: UserBlockProfileMenu(
+              reportKind: ContentReportKind.studioProfile,
+              userId: profile.userId,
+              name: profile.displayName,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

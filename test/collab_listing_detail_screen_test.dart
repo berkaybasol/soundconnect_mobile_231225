@@ -104,6 +104,30 @@ void main() {
     expect(find.textContaining('12.08.2026'), findsNothing);
   });
 
+  testWidgets(
+    'blocked listing remains readable with contact actions disabled',
+    (tester) async {
+      final repository = FakeCollabDetailRepository(
+        listing: collabListingFixture().copyWith(interactionBlocked: true),
+      );
+      final cubit = CollabListingDetailCubit(repository);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(detailApp(cubit));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Çarşamba gecesi bas gitarist arıyoruz'),
+        findsOneWidget,
+      );
+      final apply = find.text('Başvuru yapılamıyor');
+      await tester.scrollUntilVisible(apply, 240);
+      await tester.tap(apply);
+      await tester.pumpAndSettle();
+      expect(repository.applyCalls, 0);
+      expect(cubit.state.listing?.canApply, isFalse);
+    },
+  );
+
   testWidgets('regular venue states when fee was not provided', (tester) async {
     final repository = FakeCollabDetailRepository(
       listing: collabListingFixture(

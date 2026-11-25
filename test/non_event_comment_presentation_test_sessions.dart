@@ -235,6 +235,8 @@ class _FeedCubit extends Cubit<OverthinkingFeedState>
   @override
   bool isPostUnavailable(String postId) => false;
   @override
+  OverthinkingPost visiblePost(OverthinkingPost post) => post;
+  @override
   void incrementCommentCount(String postId) {}
   @override
   Future<void> refreshPost(String postId) async {}

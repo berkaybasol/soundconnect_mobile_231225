@@ -10,6 +10,10 @@ import '../push/push_installation_store.dart';
 import '../../shared/images/private_media_image_cache.dart';
 import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/data/collab_report_admin_repository.dart';
+import '../../modules/admin/data/table_report_admin_repository.dart';
+import '../../modules/admin/data/content_report_admin_repository.dart';
+import '../../modules/admin/data/admin_user_directory_repository.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
@@ -23,6 +27,7 @@ import '../../modules/tablegroup/data/table_group_profile_share_repository_impl.
 import '../../modules/tablegroup/domain/table_group_profile_share_repository.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
+import '../../modules/auth/data/google_auth_repository.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
 import '../../modules/auth/domain/account_deletion_repository.dart';
 import '../../modules/auth/domain/auth_repository.dart';
@@ -68,6 +73,8 @@ import '../../modules/artist_venue/data/artist_venue_connection_repository_impl.
 import '../../modules/artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../modules/artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../modules/follow/data/follow_repository_impl.dart';
+import '../../modules/content_report/data/content_report_repository.dart';
+import '../../modules/user_block/data/user_block_repository.dart';
 import '../../modules/follow/data/band_follow_repository_impl.dart';
 import '../../modules/follow/domain/band_follow_repository.dart';
 import '../../modules/follow/domain/follow_repository.dart';
@@ -160,6 +167,7 @@ import '../../modules/studio/domain/studio_room_repository.dart';
 import '../../modules/setlist/data/setlist_repository_impl.dart';
 import '../../modules/setlist/domain/setlist_repository.dart';
 import '../../modules/tablegroup/data/table_group_repository_impl.dart';
+import '../../modules/tablegroup/data/table_group_report_repository.dart';
 import '../../modules/tablegroup/data/table_group_venue_option_repository_impl.dart';
 import '../../modules/tablegroup/data/table_group_chat_realtime_client.dart';
 import '../../modules/tablegroup/data/table_group_game_repository_impl.dart';
@@ -188,6 +196,22 @@ void setupDependencies() {
       () => AuthSessionManager(
         tokenStore: serviceLocator<TokenStore>(),
         sessionStore: serviceLocator<AuthSessionStore>(),
+        verifyAccess: (session, revision) =>
+            serviceLocator<ApiClient>().request<void>(
+              ApiHttpMethod.get,
+              '/api/v1/session/access',
+              requestContext: ApiRequestContext(
+                expectedToken: session.token,
+                expectedCredentialRevision: revision,
+              ),
+              decoder: (value) {
+                if (value != null && value != '') {
+                  throw const FormatException(
+                    'Unexpected session access response',
+                  );
+                }
+              },
+            ),
         onSessionEnded: _stopSessionServices,
       ),
     )
@@ -271,6 +295,30 @@ void setupDependencies() {
     )
     ..registerLazySingleton<MarketplaceReportAdminRepository>(
       () => MarketplaceReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<TableReportAdminRepository>(
+      () => TableReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<ContentReportAdminRepository>(
+      () => ContentReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<CollabReportAdminRepository>(
+      () => CollabReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<AdminUserDirectoryRepository>(
+      () => AdminUserDirectoryRepository(
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),
@@ -361,6 +409,7 @@ void setupDependencies() {
         serviceLocator<TokenStore>(),
         realtimeClient: serviceLocator<NotificationRealtimeClient>(),
         sessions: serviceLocator<AuthSessionManager>(),
+        blockChanges: serviceLocator<UserBlockRepository>().changes,
         onDeliveryStateChanged: () =>
             serviceLocator<PushCoordinator>().reconcileDelivered(),
       ),
@@ -519,6 +568,19 @@ void setupDependencies() {
     ..registerFactory<VenueProfileCubit>(
       () => VenueProfileCubit(serviceLocator<VenueProfileRepository>()),
     )
+    ..registerLazySingleton<ContentReportRepository>(
+      () => ContentReportRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<UserBlockRepository>(
+      () => UserBlockRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+      dispose: (value) => value.dispose(),
+    )
     ..registerLazySingleton<FollowRepository>(
       () => FollowRepositoryImpl(serviceLocator<ApiClient>()),
     )
@@ -542,6 +604,12 @@ void setupDependencies() {
     )
     ..registerLazySingleton<TableGroupRepository>(
       () => TableGroupRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<TableGroupReportRepository>(
+      () => TableGroupReportRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<TableGroupVenueOptionRepository>(
       () => TableGroupVenueOptionRepositoryImpl(serviceLocator<ApiClient>()),
@@ -605,6 +673,7 @@ void setupDependencies() {
         bandFollowRepository: serviceLocator<BandFollowRepository>(),
         sessions: serviceLocator<AuthSessionManager>(),
         muteChanges: serviceLocator<MusicianFeedMuteChanges>(),
+        blockChanges: serviceLocator<UserBlockRepository>().changes,
       ),
     )
     ..registerFactory<TableGroupCreateCubit>(
@@ -679,6 +748,7 @@ void setupDependencies() {
     )
     ..registerFactory<OverthinkingFeedCubit>(
       () => OverthinkingFeedCubit(
+        blockChanges: serviceLocator<UserBlockRepository>().changes,
         overthinkingRepository: serviceLocator<OverthinkingRepository>(),
         engagementRepository: serviceLocator<EngagementRepository>(),
         sessions: serviceLocator<AuthSessionManager>(),
@@ -689,6 +759,9 @@ void setupDependencies() {
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),
+    )
+    ..registerLazySingleton<GoogleAuthRepository>(
+      () => GoogleAuthRepository(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(
@@ -804,6 +877,7 @@ void setupDependencies() {
           unawaited(serviceLocator<PushCoordinator>().reconcileDelivered());
           return Future.wait<void>([count, dmCount]).then((_) {});
         },
+        blocks: serviceLocator<UserBlockRepository>(),
       ),
     );
 }

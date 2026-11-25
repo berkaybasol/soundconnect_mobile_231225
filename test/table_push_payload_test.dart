@@ -38,6 +38,13 @@ void main() {
         expect(
           PushTarget.parse({
             ...wire,
+            'displayVariant': 'ADMIN_REMOVED',
+          })?.isTable,
+          isTrue,
+        );
+        expect(
+          PushTarget.parse({
+            ...wire,
             'displayVariant': 'OWNER_JOINED_ANOTHER_TABLE',
           })?.isTable,
           isTrue,

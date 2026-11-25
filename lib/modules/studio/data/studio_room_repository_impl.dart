@@ -144,6 +144,30 @@ class StudioRoomRepositoryImpl implements StudioRoomRepository {
   );
 
   @override
+  Future<Result<StudioPage<StudioReservation>>> listCustomerReservations({
+    int page = 0,
+    int size = 20,
+  }) => _guard(
+    () => _apiClient.get<StudioPage<StudioReservation>>(
+      _customerReservations,
+      query: {'page': page, 'size': size},
+      decoder: (json) => _decodePage(json, _decodeReservation),
+    ),
+    'Rezervasyonların getirilemedi.',
+  );
+
+  @override
+  Future<Result<StudioReservation>> getCustomerReservation(
+    String reservationId,
+  ) => _guard(
+    () => _apiClient.get<StudioReservation>(
+      '$_customerReservations/${Uri.encodeComponent(reservationId)}',
+      decoder: _decodeReservation,
+    ),
+    'Rezervasyon getirilemedi.',
+  );
+
+  @override
   Future<Result<StudioReservation>> createReservation({
     required String roomId,
     required DateTime date,
@@ -442,6 +466,9 @@ class StudioRoomRepositoryImpl implements StudioRoomRepository {
           ? _requiredString(json, 'requesterPublicCode')
           : _optionalString(json['requesterPublicCode'], 'requesterPublicCode'),
       requesterPhone: _optionalString(json['requesterPhone'], 'requesterPhone'),
+      interactionBlocked:
+          json.containsKey('interactionBlocked') &&
+          _requiredBool(json, 'interactionBlocked'),
       requesterUsername: _optionalString(
         json['requesterUsername'],
         'requesterUsername',

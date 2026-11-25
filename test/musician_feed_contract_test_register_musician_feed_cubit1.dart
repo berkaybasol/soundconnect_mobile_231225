@@ -2,6 +2,54 @@ part of 'musician_feed_contract_test.dart';
 
 void _registerMusicianFeedCubit1() {
   test(
+    'blocking clears visible cards and ignores an older feed response',
+    () async {
+      final sessions = _musicianSessions();
+      final events = StreamController<UserBlockChange>.broadcast(sync: true);
+      final oldPage = Completer<Result<MusicianFeedPage>>();
+      final freshPage = Completer<Result<MusicianFeedPage>>();
+      final feed = _FeedRepository()
+        ..responses.addAll([
+          Future.value(Result.success(_page('existing'))),
+          oldPage.future,
+          freshPage.future,
+        ]);
+      final cubit = MusicianFeedCubit(
+        feed,
+        _EngagementRepository(),
+        collabRepository: _CollabRepository(),
+        followRepository: _FollowRepository(),
+        bandFollowRepository: _BandFollowRepository(),
+        sessions: sessions,
+        blockChanges: events.stream,
+      );
+      addTearDown(events.close);
+      addTearDown(cubit.close);
+      await cubit.initialize();
+      final oldRequest = cubit.refresh();
+      events.add(
+        UserBlockChange(
+          actorId: sessions.session.userId!,
+          userId: 'author',
+          status: const UserBlockStatus(
+            blockedByMe: true,
+            interactionBlocked: true,
+          ),
+        ),
+      );
+      expect(cubit.state.items, isEmpty);
+      oldPage.complete(Result.success(_page('stale')));
+      await oldRequest;
+      expect(cubit.state.items, isEmpty);
+      final received = cubit.stream.firstWhere(
+        (state) => state.status == MusicianFeedStatus.ready,
+      );
+      freshPage.complete(Result.success(_page('allowed')));
+      expect((await received).items.single.id, 'allowed');
+    },
+  );
+
+  test(
     'initial endpoint feature-off becomes a non-error fallback state',
     () async {
       final feed = _FeedRepository()
@@ -162,8 +210,9 @@ void _registerMusicianFeedCubit1() {
   });
 
   test(
-    'cursor-invalid paging starts a clean first-page feed session',
+    'cursor-invalid paging clears old cards before the new page arrives',
     () async {
+      final fresh = Completer<Result<MusicianFeedPage>>();
       final feed = _FeedRepository()
         ..responses.add(
           Future.value(
@@ -183,9 +232,7 @@ void _registerMusicianFeedCubit1() {
             ),
           ),
         )
-        ..responses.add(
-          Future.value(Result.success(_itemsPage([_trackItem('fresh')]))),
-        );
+        ..responses.add(fresh.future);
       final cubit = MusicianFeedCubit(
         feed,
         _EngagementRepository(),
@@ -197,7 +244,12 @@ void _registerMusicianFeedCubit1() {
       addTearDown(cubit.close);
       await cubit.initialize();
 
-      await cubit.loadMore();
+      final reload = cubit.loadMore();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.items, isEmpty);
+      expect(cubit.state.nextCursor, isNull);
+      fresh.complete(Result.success(_itemsPage([_trackItem('fresh')])));
+      await reload;
 
       expect(feed.loadCursors, [null, 'stale-cursor', null]);
       expect(cubit.state.items.map((item) => item.id), ['fresh']);

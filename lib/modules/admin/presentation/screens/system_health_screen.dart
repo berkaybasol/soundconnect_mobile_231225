@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/diagnostics/crash_reporting.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -15,9 +16,11 @@ class SystemHealthScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.sessions,
+    this.embedded = false,
   });
   final SystemHealthRepository repository;
   final AuthSessionManager sessions;
+  final bool embedded;
 
   @override
   State<SystemHealthScreen> createState() => _SystemHealthScreenState();
@@ -37,11 +40,15 @@ class _SystemHealthScreenState extends State<SystemHealthScreen>
   Timer? _timer;
   int _generation = 0;
 
-  bool get _allowed => canViewSystemHealth(widget.sessions.session);
+  late final AuthSession _entry;
+  bool get _allowed =>
+      (!widget.embedded || identical(_entry, widget.sessions.session)) &&
+      canViewSystemHealth(widget.sessions.session);
 
   @override
   void initState() {
     super.initState();
+    _entry = widget.sessions.session;
     WidgetsBinding.instance.addObserver(this);
     _foreground =
         WidgetsBinding.instance.lifecycleState == null ||
@@ -159,19 +166,17 @@ class _SystemHealthScreenState extends State<SystemHealthScreen>
     child: Builder(
       builder: (context) {
         final snapshot = _snapshot;
+        final refresh = IconButton(
+          key: const Key('health-refresh'),
+          tooltip: 'Yenile',
+          onPressed: _allowed && !_loading ? _refresh : null,
+          icon: const Icon(Icons.refresh_rounded),
+        );
         return Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: const Text('Sistem sağlığı'),
-            actions: [
-              IconButton(
-                key: const Key('health-refresh'),
-                tooltip: 'Yenile',
-                onPressed: _allowed && !_loading ? _refresh : null,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ],
-          ),
+          appBar: widget.embedded
+              ? null
+              : AppBar(title: const Text('Sistem sağlığı'), actions: [refresh]),
           body: SafeArea(
             child: !_allowed
                 ? const Center(
@@ -182,6 +187,30 @@ class _SystemHealthScreenState extends State<SystemHealthScreen>
                 : ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (widget.embedded)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Semantics(
+                                  header: true,
+                                  child: Text(
+                                    'Sistem sağlığı',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -1.5,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                              refresh,
+                            ],
+                          ),
+                        ),
                       AdminSectionCard(
                         title: 'Hizmetlerin durumu',
                         icon: Icons.monitor_heart_outlined,

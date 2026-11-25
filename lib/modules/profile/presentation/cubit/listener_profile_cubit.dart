@@ -133,6 +133,9 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
     emit(
       state.copyWith(
         status: ListenerProfileStatus.failure,
+        publicProfile: result.error?.isProfileUnavailable == true
+            ? null
+            : state.publicProfile,
         error: result.error,
       ),
     );

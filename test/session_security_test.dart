@@ -65,6 +65,10 @@ void main() {
       expect(isPublicApiRequest('PATCH', '/api/v1/users/me/username'), isFalse);
       expect(
         isPublicApiRequest('POST', '/api/v1/auth/complete-google-profile'),
+        isTrue,
+      );
+      expect(
+        isPublicApiRequest('GET', '/api/v1/auth/complete-google-profile'),
         isFalse,
       );
     });
@@ -337,7 +341,7 @@ void main() {
       final listener = _session(roles: const ['ROLE_LISTENER']);
       expect(
         AppRouteGuard.redirectFor(AppRoutes.venuePending, listener),
-        AppRoutes.listenerProfile,
+        AppRoutes.eventDiscovery,
       );
     });
 

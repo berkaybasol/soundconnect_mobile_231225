@@ -17,6 +17,7 @@ class CollabListing {
     required this.ownedByMe,
     required this.appliedByMe,
     required this.savedByMe,
+    this.interactionBlocked = false,
     this.closureReason,
     this.instrument,
     this.branch,
@@ -56,11 +57,13 @@ class CollabListing {
   final bool ownedByMe;
   final bool appliedByMe;
   final bool savedByMe;
+  final bool interactionBlocked;
   final int applicationCount;
 
   bool get isDraft => status == CollabListingStatus.draft;
   bool get isOpen => status == CollabListingStatus.open;
-  bool get canApply => isOpen && !ownedByMe && !appliedByMe;
+  bool get canApply =>
+      isOpen && !ownedByMe && !appliedByMe && !interactionBlocked;
 
   String? get specialtyLabel {
     final instrumentName = instrument?.name.trim();
@@ -83,6 +86,7 @@ class CollabListing {
     bool clearClosureReason = false,
     bool? savedByMe,
     bool? appliedByMe,
+    bool? interactionBlocked,
     int? applicationCount,
   }) => CollabListing(
     id: id,
@@ -112,6 +116,7 @@ class CollabListing {
     ownedByMe: ownedByMe,
     appliedByMe: appliedByMe ?? this.appliedByMe,
     savedByMe: savedByMe ?? this.savedByMe,
+    interactionBlocked: interactionBlocked ?? this.interactionBlocked,
     applicationCount: applicationCount ?? this.applicationCount,
   );
 }

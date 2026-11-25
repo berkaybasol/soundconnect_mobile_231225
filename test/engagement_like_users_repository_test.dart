@@ -18,6 +18,7 @@ void main() {
     'OVERTHINKING_PROFILE_SHARE',
     'OVERTHINKING',
     'COMMENT',
+    'ANNOUNCEMENT',
   ]) {
     test(
       '$target reads the exact target with the current session fence',
@@ -93,6 +94,22 @@ void main() {
     expect(result.isSuccess, isTrue);
     expect(result.data!.items, isEmpty);
     expect(result.data!.hasMore, isFalse);
+  });
+
+  test('a masked backstage liker leaves visible peers readable', () async {
+    final api = RecordingApiClient(
+      (_) => _page(
+        items: [
+          _user(),
+          {'id': null, 'username': 'Anonymous Author', 'avatarUrl': null},
+        ],
+      ),
+    );
+    final result = await EngagementRepositoryImpl(
+      api,
+    ).listLikeUsers(targetType: 'ANNOUNCEMENT', targetId: 'local');
+    expect(result.data!.items.map((item) => item.id), ['liker', '']);
+    expect(result.data!.items.last.username, 'Anonim');
   });
 
   final malformedPages = <String, Object?>{

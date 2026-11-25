@@ -82,7 +82,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               (reason) => RadioListTile<CollabReportReason>(
                 value: reason,
                 groupValue: _reason,
-                title: Text(_reportReasonLabel(reason)),
+                title: Text(reason.label),
                 onChanged: (value) {
                   if (value != null) setState(() => _reason = value);
                 },
@@ -172,11 +172,4 @@ String _statusLabel(CollabListingStatus status) => switch (status) {
   CollabListingStatus.open => 'Açık',
   CollabListingStatus.closed => 'İlan Kapandı',
   CollabListingStatus.expired => 'İlanın Süresi Doldu',
-};
-
-String _reportReasonLabel(CollabReportReason reason) => switch (reason) {
-  CollabReportReason.spam => 'Spam veya tekrar eden ilan',
-  CollabReportReason.inappropriate => 'Uygunsuz içerik',
-  CollabReportReason.misleading => 'Yanıltıcı veya hatalı ilan',
-  CollabReportReason.other => 'Diğer',
 };

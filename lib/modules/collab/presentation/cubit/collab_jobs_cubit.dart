@@ -44,14 +44,22 @@ class CollabJobsCubit extends CollabPagedCubit<CollabJob> {
   String itemId(CollabJob item) => item.id;
 
   Future<void> confirmCompletion(CollabJob job) async {
-    if (job.isCompleted || job.confirmedByMe || !beginItemAction(job.id)) {
-      return;
+    if (!job.confirmedByMe) {
+      await _updateActiveJob(job, _repository.confirmJobCompletion);
     }
+  }
+
+  Future<void> cancel(CollabJob job) =>
+      _updateActiveJob(job, _repository.cancelJob);
+
+  Future<void> _updateActiveJob(
+    CollabJob job,
+    Future<Result<CollabJob>> Function(String, {required int expectedVersion})
+    update,
+  ) async {
+    if (!job.isActive || !beginItemAction(job.id)) return;
     final generation = operationGeneration;
-    final result = await _repository.confirmJobCompletion(
-      job.id,
-      expectedVersion: job.version,
-    );
+    final result = await update(job.id, expectedVersion: job.version);
     if (!isCurrentOperation(generation)) {
       if (!isClosed) endItemAction(job.id);
       return;
@@ -73,7 +81,10 @@ class CollabJobsCubit extends CollabPagedCubit<CollabJob> {
   }
 
   Future<void> review(CollabJob job, CollabReviewInput input) async {
-    if (!job.isCompleted || job.reviewedByMe || !beginItemAction(job.id)) {
+    if (job.interactionBlocked ||
+        !job.isCompleted ||
+        job.reviewedByMe ||
+        !beginItemAction(job.id)) {
       return;
     }
     final generation = operationGeneration;
@@ -113,6 +124,7 @@ class CollabJobsCubit extends CollabPagedCubit<CollabJob> {
       if (isClosed) return;
       await refresh();
     }
+    if (result.error?.isInteractionUnavailable == true) await refresh();
     if (!isClosed) {
       endItemAction(job.id, error: result.error ?? cleanupError);
     }

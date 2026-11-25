@@ -15,9 +15,11 @@ import 'package:soundconnect_23_12_25codx/core/realtime/stomp_realtime_transport
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_realtime_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/models/table_group_create_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/models/table_group_message_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/table_group_chat_realtime_client.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/table_group_report_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group_game.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group_message.dart';
@@ -31,15 +33,20 @@ import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 import '../../../support/event_audience_fakes.dart';
+import '../../../support/recording_api_client.dart';
 
 part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle1.dart';
 part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle2.dart';
 part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle3.dart';
+part 'table_group_report_entry_cases.dart';
+part 'table_group_detail_overlay_cases.dart';
 
 void main() {
   _registerTableGroupDetailLifecycle1();
   _registerTableGroupDetailLifecycle2();
   _registerTableGroupDetailLifecycle3();
+  _registerReportEntryCases();
+  _registerTableRemovalOverlayCases();
 }
 
 TableGroupMessage _expiringGameMessage({

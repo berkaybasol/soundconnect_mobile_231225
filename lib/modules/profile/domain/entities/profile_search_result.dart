@@ -18,6 +18,7 @@ class ProfileSearchResult {
   final String? subtitle;
   final String? imageUrl;
   final ListenerVisibilityMode visibilityMode;
+  final bool bandContactAvailable;
 
   const ProfileSearchResult({
     required this.type,
@@ -27,6 +28,7 @@ class ProfileSearchResult {
     required this.subtitle,
     required this.imageUrl,
     this.visibilityMode = ListenerVisibilityMode.standard,
+    this.bandContactAvailable = true,
   });
 
   bool get isGhostListener =>
@@ -49,6 +51,7 @@ class ProfileSearchResult {
       title: json['title']?.toString().trim() ?? '',
       subtitle: json['subtitle']?.toString().trim(),
       imageUrl: _nonBlank(json['imageUrl']),
+      bandContactAvailable: json['bandContactAvailable'] as bool? ?? true,
       visibilityMode: parseContextualListenerVisibilityMode(
         json['visibilityMode'],
       ),

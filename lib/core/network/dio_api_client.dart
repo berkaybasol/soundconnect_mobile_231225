@@ -6,6 +6,7 @@ import '../auth/auth_session_manager.dart';
 import '../auth/jwt_claims.dart';
 import '../auth/token_store.dart';
 import '../error/app_error.dart';
+import '../error/studio_rejection_error.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'base_response.dart';
@@ -19,6 +20,7 @@ const Set<String> _publicAuthPaths = <String>{
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/google-sign-in',
+  '/api/v1/auth/complete-google-profile',
 };
 
 @visibleForTesting
@@ -59,13 +61,16 @@ bool _isPathOrDescendant(String path, String basePath) {
   return path == basePath || path.startsWith('$basePath/');
 }
 
-// These guest-readable sources have a narrower projection for listeners. They
-// must carry that identity without changing public event/location discovery.
+// Profile sources use the signed-in viewer for account blocks and listener
+// visibility. Guest sessions can still read their public projection.
 bool _isAudienceAwarePublicSource(String method, String rawPath) {
   if (method.trim().toUpperCase() != 'GET') return false;
   final path = Uri.tryParse(rawPath)?.path ?? rawPath;
   return RegExp(r'^/api/v1/profiles/[^/]+/[^/]+/media$').hasMatch(path) ||
       path == '/api/v1/public/search/profiles' ||
+      path == '/api/v1/venues/get-all' ||
+      path == '/api/v1/venues/search' ||
+      path.startsWith('/api/v1/venues/get-by-id/') ||
       const [
         '/api/v1/public/media',
         '/api/v1/public/musician-profiles',
@@ -147,6 +152,8 @@ class DioApiClient implements ApiClient {
   final AuthSessionManager? _sessionManager;
 
   static const String _requestTokenKey = 'soundconnect.request_token';
+  static const String _sentRevisionKey =
+      'soundconnect.sent_credential_revision';
   static const String _expectedSessionKey = 'soundconnect.expected_session_key';
   static const String _expectedTokenKey = 'soundconnect.expected_token';
   static const String _expectedCredentialRevisionKey =
@@ -178,6 +185,11 @@ class DioApiClient implements ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          if (_sessionManager?.session.isSuspendedNotice == true) {
+            handler.reject(_sourceSessionChanged(options));
+            return;
+          }
+          options.extra[_sentRevisionKey] = _sessionManager?.credentialRevision;
           final isPublic = isPublicApiRequest(options.method, options.path);
           final expectedSession =
               options.extra[_expectedSessionKey]?.toString().trim() ?? '';
@@ -187,8 +199,9 @@ class DioApiClient implements ApiClient {
           final sourceFence =
               options.extra[_sourceSessionFenceKey]
                   as _PublicSourceSessionFence?;
-          final attachListenerIdentity =
-              !requireGuestSession && sourceFence?.isListener == true;
+          final attachViewerIdentity =
+              !requireGuestSession &&
+              sourceFence?.session.isAuthenticated == true;
           if (sourceFence != null && !sourceFence.isCurrent) {
             handler.reject(_sourceSessionChanged(options));
             return;
@@ -199,19 +212,23 @@ class DioApiClient implements ApiClient {
             );
           }
           if (!isPublic ||
-              attachListenerIdentity ||
+              attachViewerIdentity ||
               expectedSession.isNotEmpty ||
               requireGuestSession ||
               options.extra[_expectedCredentialRevisionKey] != null ||
               expectedToken != null) {
             final token = await _tokenStore.readToken();
+            if (_sessionManager?.session.isSuspendedNotice == true) {
+              handler.reject(_sourceSessionChanged(options));
+              return;
+            }
             if (!_isExpectedCredentialCurrent(options)) {
               handler.reject(_sourceSessionChanged(options));
               return;
             }
             if (sourceFence != null &&
                 (!sourceFence.isCurrent ||
-                    (attachListenerIdentity &&
+                    (attachViewerIdentity &&
                         (token != sourceFence.session.token ||
                             JwtClaims.tryParse(token)?.subject !=
                                 sourceFence.session.userId)))) {
@@ -264,7 +281,7 @@ class DioApiClient implements ApiClient {
                 return;
               }
             }
-            if ((!isPublic || attachListenerIdentity) &&
+            if ((!isPublic || attachViewerIdentity) &&
                 token != null &&
                 token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
@@ -286,7 +303,12 @@ class DioApiClient implements ApiClient {
             handler.next(_sourceSessionChanged(error.requestOptions));
             return;
           }
-          if (_codeFromErrorPayload(error.response?.data) == '1308') {
+          final code = _codeFromErrorPayload(error.response?.data);
+          if (error.response?.statusCode == 403 &&
+              code == AppError.accountSuspended) {
+            await _handleSuspension(error.requestOptions);
+          }
+          if (code == '1308') {
             await _requireListenerChoiceForRequest(error.requestOptions);
           }
           if (error.response?.statusCode == 401) {
@@ -471,6 +493,9 @@ class DioApiClient implements ApiClient {
         if (baseResponse.code == 401) {
           await _rejectUnauthorizedRequest(response.requestOptions);
         }
+        if (baseResponse.code?.toString() == AppError.accountSuspended) {
+          await _handleSuspension(response.requestOptions);
+        }
         if (baseResponse.code?.toString() == '1308') {
           await _requireListenerChoiceForRequest(response.requestOptions);
         }
@@ -507,6 +532,17 @@ class DioApiClient implements ApiClient {
           _codeFromErrorPayload(errorPayload) ??
           e.response?.statusCode?.toString() ??
           'network';
+      if (code == '1112' &&
+          e.response?.statusCode == 403 &&
+          e.requestOptions.method == 'POST' &&
+          const {
+            '/api/v1/auth/login',
+            '/api/v1/auth/google-sign-in',
+            '/api/v1/auth/complete-google-profile',
+          }.contains(e.requestOptions.uri.path) &&
+          errorPayload is Map<String, dynamic>) {
+        throw ApiException(StudioRejectionError.fromResponse(errorPayload));
+      }
       throw ApiException(
         AppError(
           code: code,
@@ -524,6 +560,31 @@ class DioApiClient implements ApiClient {
     if (_isPublicRequest(options)) return;
     final rejectedToken = options.extra[_requestTokenKey]?.toString();
     await _sessionManager?.rejectUnauthorizedToken(rejectedToken);
+  }
+
+  Future<void> _handleSuspension(RequestOptions options) async {
+    final revision = options.extra[_sentRevisionKey];
+    final token = options.extra[_requestTokenKey] as String?;
+    // These public operations can report suspension only after the server
+    // verifies a password, Google proof or one-time code.
+    final verifiedCredentials =
+        options.method == 'POST' &&
+        const {
+          '/api/v1/auth/login',
+          '/api/v1/auth/google-sign-in',
+          '/api/v1/auth/complete-google-profile',
+          '/api/v1/auth/verify-code',
+          '/api/v1/auth/reset-password',
+        }.contains(options.uri.path);
+    if (revision is! int ||
+        (token == null && !verifiedCredentials) ||
+        !_isSameApiOrigin(options.path)) {
+      return;
+    }
+    await _sessionManager?.suspendAccount(
+      revision: revision,
+      requestToken: token,
+    );
   }
 
   Future<void> _requireListenerChoiceForRequest(RequestOptions options) async {
@@ -616,10 +677,6 @@ class _PublicSourceSessionFence {
   final AuthSessionManager manager;
   final AuthSession session;
   bool _invalidated = false;
-
-  bool get isListener =>
-      session.isAuthenticated &&
-      session.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER']);
 
   bool get isCurrent => !_invalidated && identical(manager.session, session);
 

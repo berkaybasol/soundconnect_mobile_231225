@@ -57,7 +57,7 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
       userId: participant.userId,
       usernameHint: participant.username,
     );
-    if (!mounted) return;
+    if (!mounted || !_isSessionActive) return;
     final isCurrentUser = participant.userId == _currentUserId;
     final targets = resolvedTargets
         .where((target) => isCurrentUser || dmProfileRouteFor(target) != null)
@@ -80,9 +80,12 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
     final selected = await showModalBottomSheet<DmProfileTarget>(
       context: context,
       showDragHandle: true,
-      builder: (context) => _TableGroupProfileTargetSheet(items: targets),
+      builder: (context) => _tableOverlayContent(
+        context,
+        _TableGroupProfileTargetSheet(items: targets),
+      ),
     );
-    if (!mounted || selected == null) return;
+    if (!mounted || selected == null || !_isSessionActive) return;
     if (isCurrentUser) {
       _navigateToOwnerProfileTarget(selected);
     } else {
@@ -386,7 +389,9 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            message.content,
+            message.deletedAt == null
+                ? message.content
+                : 'Bu mesaj kaldırıldı.',
             style: TextStyle(
               color: mine && AppColors.isLight
                   ? AppColors.onAccent
@@ -411,6 +416,12 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
       return Align(alignment: Alignment.centerRight, child: bubble);
     }
 
+    final reportable =
+        _canReport &&
+        message.messageType == 'TEXT' &&
+        message.deletedAt == null;
+    void report() =>
+        unawaited(_report(TableGroupReportKind.message, message: message));
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       child: Row(
@@ -452,7 +463,23 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
             ),
           ),
           const SizedBox(width: 6),
-          Flexible(child: bubble),
+          Flexible(
+            child: reportable
+                ? GestureDetector(onLongPress: report, child: bubble)
+                : bubble,
+          ),
+          if (reportable)
+            PopupMenuButton<bool>(
+              tooltip: 'Mesaj seçenekleri',
+              icon: const Icon(Icons.more_vert, size: 18),
+              onSelected: (_) => report(),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: true,
+                  child: _tableMenuLabel('Mesajı bildir'),
+                ),
+              ],
+            ),
         ],
       ),
     );

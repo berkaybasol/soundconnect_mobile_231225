@@ -54,6 +54,36 @@ void main() {
     await serviceLocator.reset();
   });
 
+  for (final archived in [false, true]) {
+    testWidgets(
+      'blocked customer opens own reservation when archived=$archived',
+      (tester) async {
+        f.api.response = _dto()
+          ..['interactionBlocked'] = true
+          ..['roomArchived'] = archived;
+        await f.mount(tester);
+        await tester.pumpAndSettle();
+        expect(find.text('Stüdyo rezervasyonum'), findsOneWidget);
+        expect(find.text('Current room'), findsOneWidget);
+        expect(f.rooms.roomIds, isEmpty);
+        expect(f.api.ackIds, [_id]);
+      },
+    );
+  }
+
+  testWidgets(
+    'a mismatched private reservation cannot acknowledge a blocked customer notification',
+    (tester) async {
+      f.api.response = _dto()..['interactionBlocked'] = true;
+      f.rooms.reservationId = _roomId;
+      await f.mount(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Tekrar dene'), findsOneWidget);
+      expect(f.rooms.roomIds, isEmpty);
+      expect(f.api.ackIds, isEmpty);
+    },
+  );
+
   for (final type in PushTarget.studioTypes) {
     test(
       '$type exact target is read-only and token/recipient fenced',
@@ -893,6 +923,12 @@ class _Rooms extends Fake implements StudioRoomRepository {
     localStartTime: '11:00',
     localEndTime: '12:00',
   );
+  @override
+  Future<Result<StudioReservation>> getCustomerReservation(String id) async {
+    expect(id, _reservation);
+    return Result.success(reservation);
+  }
+
   @override
   Future<Result<StudioReservation>> approveReservation({
     required String roomId,

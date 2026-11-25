@@ -2,6 +2,71 @@ part of 'follow_notification_open_test.dart';
 
 extension _OwnerProfileCases on _FollowNotificationOpenCases {
   void _registerOwnProfileCases() {
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'studio owner can open the menu and go back below the status bar in ${brightness.name} theme',
+        (t) async {
+          t.view.devicePixelRatio = 1;
+          t.view.physicalSize = const Size(392, 850);
+          t.view.padding = const FakeViewPadding(top: 56);
+          t.view.viewPadding = const FakeViewPadding(top: 56);
+          addTearDown(t.view.resetDevicePixelRatio);
+          addTearDown(t.view.resetPhysicalSize);
+          addTearDown(t.view.resetPadding);
+          addTearDown(t.view.resetViewPadding);
+          await t.runAsync(() async {
+            sessions.replace(
+              audienceSession(user: recipient, role: 'ROLE_STUDIO'),
+            );
+            await cubit.ensureStarted();
+          });
+          final repo = _OwnerStudio(
+            Completer<Result<Object>>()
+              ..complete(Result.success(_ownerObject('STUDIO'))),
+          );
+          serviceLocator
+            ..registerSingleton<StudioProfileRepository>(repo)
+            ..registerFactory<StudioProfileCubit>(
+              () => StudioProfileCubit(repo),
+            );
+          await t.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(brightness: brightness),
+              navigatorKey: navigator,
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: const Scaffold(body: Text('Root')),
+            ),
+          );
+          unawaited(navigator.currentState!.pushNamed(AppRoutes.studioProfile));
+          await t.pumpAndSettle();
+
+          final menu = find.byTooltip('Menü');
+          final back = find.widgetWithIcon(IconButton, Icons.arrow_back);
+          expect(t.getTopLeft(menu).dy, greaterThanOrEqualTo(56));
+          expect(t.getTopLeft(back).dy, greaterThanOrEqualTo(56));
+          final overlay = t.binding.renderViews.single.debugLayer!
+              .find<SystemUiOverlayStyle>(const Offset(190, 28));
+          expect(
+            overlay?.statusBarIconBrightness,
+            brightness == Brightness.light ? Brightness.dark : Brightness.light,
+          );
+          await t.tap(menu);
+          await t.pumpAndSettle();
+          expect(
+            find.byKey(const Key('studio-account-settings')),
+            findsOneWidget,
+          );
+          navigator.currentState!.pop();
+          await t.pumpAndSettle();
+          await t.tap(back);
+          await t.pumpAndSettle();
+          expect(find.text('Root'), findsOneWidget);
+          expect(t.takeException(), isNull);
+          await t.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+
     for (final role in ['MUSICIAN', 'LISTENER', 'VENUE', 'STUDIO']) {
       for (final outcome in [
         'success',

@@ -589,6 +589,9 @@ extension _ListenerEventFeedStateBindMethods on _ListenerEventFeedState {
         intentLabel: row.intent.label,
         note: row.note,
         owner: own,
+        reportPostId: publicationVisible && !own ? row.postId : null,
+        canReport: () =>
+            !_opening && _currentAction(feed, expectedSession, row),
         ended: ended,
         isParticipating: going,
         intentBusy: participationBusy,

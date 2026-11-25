@@ -9,28 +9,41 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/deep_link/app_deep_link_policy.dart';
 import '../../../../core/deep_link/pending_app_deep_link_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/result.dart';
+import '../../../../core/error/studio_rejection_error.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
+import '../../data/google_auth_repository.dart';
+import '../../domain/business_registration_details.dart';
+import '../../domain/entities/login_result.dart';
 import '../../domain/password_reset_identifier_policy.dart';
 import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import 'otp_verify_screen.dart';
+import 'google_studio_pending_screen.dart';
+import '../../domain/entities/user_status.dart';
 
 class LoginRouteArgs {
-  const LoginRouteArgs({this.initialNotice});
+  const LoginRouteArgs({this.initialNotice, this.startGoogleSignIn = false});
 
   final String? initialNotice;
+  final bool startGoogleSignIn;
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.initialNotice});
+  const LoginScreen({
+    super.key,
+    this.initialNotice,
+    this.startGoogleSignIn = false,
+  });
 
   final String? initialNotice;
+  final bool startGoogleSignIn;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -45,6 +58,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.startGoogleSignIn && GoogleAuthRepository.supported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          _startGoogle();
+        }
+      });
+    }
     final notice = widget.initialNotice?.trim();
     if (notice == null || notice.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,6 +133,72 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _startGoogle() {
+    unawaited(context.read<AuthCubit>().authenticate(_googleCredentials));
+  }
+
+  Future<Result<LoginResult>> _googleCredentials() async {
+    try {
+      final provider = serviceLocator<GoogleAuthRepository>();
+      final sessions = serviceLocator<AuthSessionManager>();
+      final revision = sessions.credentialRevision;
+      final route = ModalRoute.of(context);
+      final idToken = await provider.chooseAccount();
+      if (idToken == null ||
+          !mounted ||
+          route?.isCurrent != true ||
+          sessions.credentialRevision != revision) {
+        return const Result.success(null);
+      }
+      final session = await provider.signIn(idToken, revision);
+      if (!mounted ||
+          route?.isCurrent != true ||
+          sessions.credentialRevision != revision) {
+        return const Result.success(null);
+      }
+      Future<LoginResult> completeRegistration(
+        String username,
+        String role,
+        BusinessRegistrationDetails? business,
+      ) => provider.complete(
+        idToken: idToken,
+        username: username,
+        role: role,
+        consent: true,
+        revision: revision,
+        business: business,
+      );
+      final completed = session != null
+          ? Result<LoginResult>.success(session)
+          : await Navigator.of(context).pushNamed<Result<LoginResult>>(
+              AppRoutes.register,
+              arguments: completeRegistration,
+            );
+      if (!mounted || route?.isCurrent != true) {
+        return const Result.success(null);
+      }
+      final application = completed?.data;
+      if (application != null &&
+          application.status == UserStatus.pendingStudioRequest) {
+        return await Navigator.of(context).push<Result<LoginResult>>(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: AppRoutes.studioPending),
+                builder: (_) => GoogleStudioPendingScreen(
+                  idToken: idToken,
+                  application: application,
+                  repository: provider,
+                  revision: revision,
+                ),
+              ),
+            ) ??
+            const Result.success(null);
+      }
+      return completed ?? const Result.success(null);
+    } catch (e) {
+      return Result.failure(googleAuthError(e));
+    }
+  }
+
   Future<void> _navigateAfterLogin() async {
     final loginRoute = ModalRoute.of(context);
     if (!mounted || loginRoute?.isCurrent != true) return;
@@ -159,11 +245,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted || loginRoute?.isCurrent != true) return;
 
     if (!identical(sessionManager.session, session)) return;
-    final membershipProfile = AppRouteGuard.approvedMembershipProfileFor(
-      session,
-    );
-    final route = membershipProfile ?? AppRouteGuard.startRouteFor(session);
-    final messenger = shouldExplainUnavailableLink || membershipProfile != null
+    final route = AppRouteGuard.landingRouteFor(session);
+    final opensBusinessProfile =
+        route == AppRoutes.venueProfile || route == AppRoutes.studioProfile;
+    final messenger = shouldExplainUnavailableLink || opensBusinessProfile
         ? ScaffoldMessenger.of(context)
         : null;
     navigator.pushNamedAndRemoveUntil<void>(route, (route) => false);
@@ -184,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
               content: Text(
                 shouldExplainUnavailableLink
                     ? 'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.'
-                    : membershipProfile == AppRoutes.venueProfile
+                    : route == AppRoutes.venueProfile
                     ? 'Mekân profilin hazır!'
                     : 'Stüdyo profilin hazır!',
               ),
@@ -256,18 +341,40 @@ class _LoginScreenState extends State<LoginScreen> {
               if (!mounted || !navigator.mounted || route?.isCurrent != true) {
                 return;
               }
-              navigator.pushNamedAndRemoveUntil(pendingRoute, (route) => false);
+              if (!identical(context.read<AuthCubit>().state.error, error)) {
+                setState(() => _loginNavigationStarted = false);
+                return;
+              }
+              navigator.pushNamedAndRemoveUntil(
+                pendingRoute,
+                (route) => false,
+                arguments: error is StudioRejectionError ? error : null,
+              );
             });
             return;
           }
           final message =
               state.error?.message ??
               'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.';
+          final offerEmail = const {
+            '1118',
+            'google_configuration',
+          }.contains(error?.code);
           ScaffoldMessenger.of(context).showSnackBar(
             appSnackBar(
               context,
               tone: AppSnackBarTone.error,
               content: Text(message),
+              action: offerEmail
+                  ? SnackBarAction(
+                      label: 'E-postayla kayıt',
+                      onPressed: () {
+                        if (mounted && route?.isCurrent == true) {
+                          Navigator.pushNamed(context, AppRoutes.register);
+                        }
+                      },
+                    )
+                  : null,
             ),
           );
         }
@@ -431,13 +538,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 SizedBox(height: 14),
-                Tooltip(
-                  message: 'Google ile giris yakinda kullanima acilacak',
-                  child: OutlinedButton.icon(
-                    key: const Key('google-sign-in-unavailable'),
-                    onPressed: null,
+                if (GoogleAuthRepository.supported)
+                  OutlinedButton.icon(
+                    key: const Key('google-sign-in'),
+                    onPressed: navigationLocked ? null : _startGoogle,
                     icon: Image.asset('assets/google.png', height: 20),
-                    label: Text('Google ile devam et (yakinda)'),
+                    label: const Text('Google ile devam et'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.onSurface,
                       side: BorderSide(color: Theme.of(context).dividerColor),
@@ -447,7 +553,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                ),
                 SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

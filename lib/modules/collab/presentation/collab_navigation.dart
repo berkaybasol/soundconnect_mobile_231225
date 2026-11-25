@@ -9,15 +9,18 @@ import '../../profile/presentation/screens/profile_route_args.dart';
 import '../domain/collab_types.dart';
 import '../domain/entities/collab_actor.dart';
 
-void openCollabActorProfile(BuildContext context, CollabActor actor) {
+Future<void> openCollabActorProfile(
+  BuildContext context,
+  CollabActor actor,
+) async {
   switch (actor.profileType) {
     case CollabProfileKind.musician:
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.musicianPublicProfile,
         arguments: PublicProfileArgs(profileId: actor.sourceProfileId),
       );
     case CollabProfileKind.band:
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.bandPublicProfile,
         arguments: BandProfileScreenArgs(
           bandId: actor.sourceProfileId,
@@ -25,12 +28,12 @@ void openCollabActorProfile(BuildContext context, CollabActor actor) {
         ),
       );
     case CollabProfileKind.venue:
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.venuePublicProfile,
         arguments: VenuePublicProfileArgs(venueId: actor.sourceProfileId),
       );
     case CollabProfileKind.studio:
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.studioPublicProfile,
         arguments: PublicProfileArgs(profileId: actor.sourceProfileId),
       );

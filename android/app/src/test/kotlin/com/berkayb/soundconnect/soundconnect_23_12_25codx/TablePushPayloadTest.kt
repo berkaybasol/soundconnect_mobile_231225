@@ -40,9 +40,11 @@ class TablePushPayloadTest {
         assertNull(VenuePushPayload.parse(wire()+("sentAt" to (now-28L*86400000).toString()),now))
         assertNotNull(VenuePushPayload.parse(wire()+("expiresAt" to (now+28L*86400000).toString()),now))
     }
-    @Test fun twoCancellationReasonsCannotBeConfused() {
+    @Test fun cancellationReasonsCannotBeConfused() {
         val manual = VenuePushPayload.parse(wire("TABLE_CANCELLED"), now)!!
         val joined = VenuePushPayload.parse(wire("TABLE_CANCELLED")+("displayVariant" to "OWNER_JOINED_ANOTHER_TABLE"), now)!!
+        val moderated = VenuePushPayload.parse(wire("TABLE_CANCELLED")+("displayVariant" to "ADMIN_REMOVED"), now)!!
+        assertEquals("Masa yönetici tarafından yayından kaldırıldı.", moderated.body)
         assertNotEquals(manual.body, joined.body)
         assertTrue(joined.body.contains("başka bir masaya"))
         assertNull(VenuePushPayload.parse(wire("TABLE_CANCELLED")+("displayVariant" to "DEFAULT"), now))

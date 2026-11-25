@@ -1,5 +1,6 @@
 import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
+import '../../../core/error/studio_rejection_error.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/auth_repository.dart';
@@ -61,6 +62,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   AppError _normalizeLoginError(AppError error) {
+    if (error.code == AppError.accountSuspended) return error;
     final message = error.message.trim();
     final lowerMessage = message.toLowerCase();
     if (error.code == '1113') {
@@ -103,11 +105,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
     if (error.code == '1112') {
-      return const AppError(
-        code: 'auth_studio_application_rejected',
-        message:
-            'Stüdyo başvurun onaylanmadı. İtiraz veya bilgi için destek ekibimizle iletişime geçebilirsin.',
-      );
+      return StudioRejectionError.forLogin(error);
     }
     final isCredentialError =
         error.code == '1001' ||

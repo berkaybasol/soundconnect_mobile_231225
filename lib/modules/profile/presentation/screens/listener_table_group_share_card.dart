@@ -6,6 +6,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../tablegroup/domain/entities/table_group_profile_share.dart';
 import '../../../tablegroup/presentation/widgets/table_group_overview_style.dart';
 import '../../../tablegroup/presentation/widgets/table_group_share_preview.dart';
+import '../../../content_report/presentation/content_report_action.dart';
 import 'listener_profile_theme.dart';
 
 /// A publication preview contains public table information, never chat or
@@ -204,6 +205,15 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                       child: Text('Paylaşımı sil'),
                     ),
                   ],
+                )
+              else if (share != null)
+                ContentReportMenu(
+                  kind: ContentReportKind.tableGroupProfileShare,
+                  targetId: share!.shareId,
+                  label: 'Paylaşımı bildir',
+                  preview: note.isNotEmpty ? note : table.description,
+                  enabled: !busy,
+                  isCurrent: isCurrent,
                 ),
             ],
           ),

@@ -6,57 +6,47 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/widgets/registration_options_sheet.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 const _sheetKey = Key('registration-options-sheet');
-const _googleKey = Key('registration-google-unavailable');
+const _googleKey = Key('registration-google');
 const _emailKey = Key('registration-email-continue');
 
 void main() {
-  testWidgets(
-    'offers email and clearly unavailable Google without navigating',
-    (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        final host = await _mount(tester);
-        openRegistrationOptions(host.context);
-        await tester.pumpAndSettle();
-        expect(find.byKey(_sheetKey), findsOneWidget);
-        expect(find.text('Üye ol'), findsOneWidget);
-        expect(find.text('Google ile devam et'), findsOneWidget);
-        expect(find.text('Yakında'), findsOneWidget);
-        expect(find.text('E-posta ile devam et'), findsOneWidget);
-        expect(find.byType(TextField), findsNothing);
-        expect(host.routes, isEmpty);
-        final google = find.byKey(_googleKey);
-        expect(tester.widget<OutlinedButton>(google).onPressed, isNull);
-        final googleSemantics = tester.getSemantics(google).getSemanticsData();
-        expect(
-          googleSemantics.hasFlag(ui.SemanticsFlag.hasEnabledState),
-          isTrue,
-        );
-        expect(googleSemantics.hasFlag(ui.SemanticsFlag.isEnabled), isFalse);
-        expect(googleSemantics.hasAction(ui.SemanticsAction.tap), isFalse);
-        for (final button in tester.widgetList<ButtonStyleButton>(
-          find.descendant(of: google, matching: find.byType(ButtonStyleButton)),
-        )) {
-          expect(button.onPressed, isNull);
-        }
-        for (final ink in tester.widgetList<InkWell>(
-          find.descendant(of: google, matching: find.byType(InkWell)),
-        )) {
-          expect(ink.onTap, isNull);
-        }
-        await tester.tap(google);
-        await tester.pumpAndSettle();
-        expect(find.byKey(_sheetKey), findsOneWidget);
-        expect(host.routes, isEmpty);
-      } finally {
-        semantics.dispose();
-      }
-    },
-  );
+  testWidgets('starts the Google account chooser through the login route', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final host = await _mount(tester);
+      openRegistrationOptions(host.context);
+      await tester.pumpAndSettle();
+      expect(find.byKey(_sheetKey), findsOneWidget);
+      expect(find.text('Üye ol'), findsOneWidget);
+      expect(find.text('Google ile devam et'), findsOneWidget);
+      expect(find.text('E-posta ile devam et'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(host.routes, isEmpty);
+      final google = find.byKey(_googleKey);
+      expect(tester.widget<OutlinedButton>(google).onPressed, isNotNull);
+      final googleSemantics = tester.getSemantics(google).getSemanticsData();
+      expect(googleSemantics.hasFlag(ui.SemanticsFlag.hasEnabledState), isTrue);
+      expect(googleSemantics.hasFlag(ui.SemanticsFlag.isEnabled), isTrue);
+      expect(googleSemantics.hasAction(ui.SemanticsAction.tap), isTrue);
+      await tester.tap(google);
+      await tester.pumpAndSettle();
+      expect(find.byKey(_sheetKey), findsNothing);
+      expect(host.routes.single.name, AppRoutes.login);
+      expect(
+        (host.routes.single.arguments as LoginRouteArgs).startGoogleSignIn,
+        isTrue,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('email continues through the existing registration route once', (
     tester,

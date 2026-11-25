@@ -183,10 +183,7 @@ class _StudioBacklineCategoryManagementScreenState
           ],
         ),
         content: Text(
-          'Talep ettiğiniz kategori veya alt kategori SoundConnect '
-          'yetkililerine ulaştırıldı. İnceleme ve onay sonrasında yalnızca '
-          'bu stüdyo için değil, tüm SoundConnect kullanıcıları için '
-          'geçerli olacaktır.',
+          '“${submitted.requestedName}” öneriniz SoundConnect ekibine ulaştı.',
           style: TextStyle(
             color: AppColors.legacy(Color(0xFFB8C0CC)),
             fontSize: 14,
@@ -314,7 +311,7 @@ class _StudioBacklineCategoryManagementScreenState
         builder: (dialogContext) => AlertDialog(
           title: const Text('Talep geri çekilsin mi?'),
           content: Text(
-            '“${request.requestedName}” talebi incelemeden kaldırılacak.',
+            '“${request.requestedName}” talebi geri çekildi olarak işaretlenecek.',
           ),
           actions: [
             TextButton(

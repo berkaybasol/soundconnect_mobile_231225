@@ -20,6 +20,8 @@ class OverthinkingSession extends ChangeNotifier {
     message: 'Oturum değişti. Overthinking sayfasını yeniden aç.',
   );
 
+  String? get userId => _initial?.userId;
+
   bool get isCurrent =>
       !_invalidated &&
       (_sessions == null || identical(_sessions.session, _initial));

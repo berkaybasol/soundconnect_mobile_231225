@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_route_guard.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 
@@ -90,6 +91,51 @@ void main() {
   });
 
   group('resolveSessionLaunchTarget', () {
+    for (final (role, route, target) in [
+      ('MUSICIAN', AppRoutes.musicianProfile, AppLaunchTarget.musicianProfile),
+      ('VENUE', AppRoutes.venueProfile, AppLaunchTarget.venueProfile),
+      ('STUDIO', AppRoutes.studioProfile, AppLaunchTarget.studioProfile),
+      ('LISTENER', AppRoutes.eventDiscovery, AppLaunchTarget.eventDiscovery),
+    ]) {
+      test('$role lands on its own destination on sign-in and restore', () {
+        for (final authority in [role, 'ROLE_$role']) {
+          final session = _session(accountStatus: 'ACTIVE', roles: [authority]);
+          expect(AppRouteGuard.landingRouteFor(session), route);
+          expect(AppRouteGuard.redirectFor(AppRoutes.login, session), route);
+          expect(AppRouteGuard.redirectFor(route, session), isNull);
+          expect(resolveSessionLaunchTarget(session), target);
+        }
+      });
+    }
+
+    test(
+      'retains the pending venue, administrator and inactive entry points',
+      () {
+        expect(
+          resolveSessionLaunchTarget(
+            _session(accountStatus: 'PENDING_VENUE_REQUEST'),
+          ),
+          AppLaunchTarget.venuePending,
+        );
+        expect(
+          resolveSessionLaunchTarget(
+            _session(
+              accountStatus: 'ACTIVE',
+              roles: ['ROLE_MUSICIAN'],
+              isAdmin: true,
+            ),
+          ),
+          AppLaunchTarget.admin,
+        );
+        expect(
+          resolveSessionLaunchTarget(
+            _session(accountStatus: 'SUSPENDED', roles: ['ROLE_MUSICIAN']),
+          ),
+          AppLaunchTarget.login,
+        );
+      },
+    );
+
     test(
       'restores pending and rejected Studio sessions to their own screens',
       () {
@@ -153,17 +199,20 @@ void main() {
   });
 }
 
-AuthSession _session({required String accountStatus}) =>
-    AuthSession.authenticated(
-      token: 'token',
-      userId: 'studio-user',
-      username: 'studio',
-      accountStatus: accountStatus,
-      roles: const [],
-      permissions: const [],
-      expiresAt: DateTime.utc(2030),
-      isAdmin: false,
-    );
+AuthSession _session({
+  required String accountStatus,
+  List<String> roles = const [],
+  bool isAdmin = false,
+}) => AuthSession.authenticated(
+  token: 'token',
+  userId: 'studio-user',
+  username: 'studio',
+  accountStatus: accountStatus,
+  roles: roles,
+  permissions: const [],
+  expiresAt: DateTime.utc(2030),
+  isAdmin: isAdmin,
+);
 
 String _token(DateTime expiresAt) {
   String encode(Map<String, dynamic> value) =>

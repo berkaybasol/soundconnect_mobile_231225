@@ -655,6 +655,7 @@ void _registerMusicianFeedContract4() {
         snapshot.copyWith(status: CollabListingStatus.closed),
         snapshot.copyWith(savedByMe: !snapshot.savedByMe),
         snapshot.copyWith(appliedByMe: !snapshot.appliedByMe),
+        snapshot.copyWith(interactionBlocked: !snapshot.interactionBlocked),
         snapshot.copyWith(applicationCount: snapshot.applicationCount + 1),
       ]) {
         expect(musicianFeedCollabStateChanged(snapshot, changed), isTrue);

@@ -23,6 +23,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       if (!detailLoaded || !mounted) return;
       if (_shouldRunChat) {
         await _loadMessages(reset: true, followLatest: true);
+        if (!mounted || !_shouldRunChat) return;
         await _gameCubit.loadActive(exposeError: false);
         await _connectRealtime();
       }
@@ -54,6 +55,9 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       return false;
     }
     final updatedGroup = result.data!;
+    if (_group?.status == 'CANCELLED' && updatedGroup.status == 'ACTIVE') {
+      return false;
+    }
     if (!_notificationMatches(updatedGroup)) {
       _updateView(
         () => _error =
@@ -61,13 +65,13 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       );
       return false;
     }
-    final sessionWillBeActive = isTableGroupSessionActiveAt(
-      updatedGroup,
-      _now(),
-    );
+    final sessionWillBeActive =
+        !_removedByModerator &&
+        isTableGroupSessionActiveAt(updatedGroup, _now());
     final hasActiveChatAccess =
         sessionWillBeActive && _isCurrentUserAcceptedIn(updatedGroup);
     final shouldRunChat = hasActiveChatAccess && _showChat;
+    final closedWhileVisible = _isSessionActive && !sessionWillBeActive;
     _updateView(() {
       _group = updatedGroup;
       if (replaceScreenOnFailure) _error = null;
@@ -82,7 +86,11 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       }
     });
     _scheduleExpiryTimer();
-    if (!shouldRunChat) {
+    if (closedWhileVisible) {
+      _chatController.clear();
+      _dismissTableOverlays();
+      _handleExpiry();
+    } else if (!shouldRunChat) {
       _gameCubit.clear();
       unawaited(_realtimeClient.disconnect());
     }
@@ -145,10 +153,15 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     }
     final incoming = result.data!;
     _updateView(() {
+      final pageIds = incoming.items
+          .map((message) => message.messageId)
+          .toSet();
       final messagesToKeep = reset
           ? _messages.where((message) {
               final baseline = resetSnapshot[message.messageId];
               return baseline == null ||
+                  (message.deletedAt != null &&
+                      pageIds.contains(message.messageId)) ||
                   isFresherTableGroupGameMessage(message, baseline);
             })
           : _messages;
@@ -198,7 +211,12 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   void _onRealtimeMsg(TableGroupMessage message) {
-    if (!_shouldRunChat || message.tableGroupId != widget.args.tableGroupId) {
+    // A report sheet can temporarily cover a notification-opened chat.
+    final redactsVisibleMessage =
+        message.deletedAt != null &&
+        _messages.any((item) => item.messageId == message.messageId);
+    if ((!_shouldRunChat && !redactsVisibleMessage) ||
+        message.tableGroupId != widget.args.tableGroupId) {
       return;
     }
     if (!mounted) return;
@@ -215,6 +233,29 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       );
     });
     if (followLatest) _scheduleScrollToLatest();
+  }
+
+  void _onTableNotification(AppNotification notice) {
+    final session = _shareSession;
+    if (!mounted ||
+        _removedByModerator ||
+        session == null ||
+        !_sameTableSession ||
+        notice.recipientId != session.userId ||
+        notice.type != 'TABLE_CANCELLED' ||
+        notice.payload['module'] != 'TABLE' ||
+        notice.payload['action'] != 'CANCELLED' ||
+        notice.payload['reason'] != 'ADMIN_REMOVED' ||
+        notice.payload['tableGroupId'] != widget.args.tableGroupId) {
+      return;
+    }
+    // A closed room no longer delivers chat frames. Its removal reaches each
+    // member through the existing personal notification subscription.
+    _removedByModerator = true;
+    _expiryTimer?.cancel();
+    _chatController.clear();
+    _dismissTableOverlays();
+    _handleExpiry();
   }
 
   void _onGameState(TableGroupGameState state) {
@@ -276,7 +317,10 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     final currentLoad = _chatLoadCompleter;
     if (currentLoad != null) await currentLoad.future;
     if (!mounted || !_shouldRunChat) return;
+    final detailLoaded = await _loadDetail(replaceScreenOnFailure: false);
+    if (!detailLoaded || !mounted || !_shouldRunChat) return;
     await _loadMessages(reset: true, followLatest: _isNearLatest);
+    if (!mounted || !_shouldRunChat) return;
     await _gameCubit.loadActive(exposeError: false);
     if (!mounted || !_shouldRunChat || _chatError != null) return;
     if (_realtimeClient.isConnected &&
@@ -337,6 +381,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     if (_realtimeClient.isConnected &&
         _realtimeClient.connectedTableGroupId == widget.args.tableGroupId) {
       await _loadMessages(reset: true, followLatest: _isNearLatest);
+      if (!mounted || !_shouldRunChat) return;
       await _gameCubit.loadActive(exposeError: false);
       return;
     }
@@ -366,6 +411,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     }
     final followLatest = _isNearLatest;
     await _loadMessages(reset: true, followLatest: followLatest);
+    if (!mounted || !_shouldRunChat) return;
     await _gameCubit.loadActive(exposeError: false);
     if (!_realtimeClient.isConnected ||
         _realtimeClient.connectedTableGroupId != widget.args.tableGroupId) {
@@ -447,9 +493,19 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     );
   }
 
-  bool get _isSessionActive => isTableGroupSessionActiveAt(_group, _now());
+  bool get _isSessionActive =>
+      !_removedByModerator && isTableGroupSessionActiveAt(_group, _now());
 
   bool get _hasActiveChatAccess => _isAccepted && _isSessionActive;
+
+  bool get _sameTableSession {
+    final current = _shareSessions?.session;
+    final entry = _shareSession;
+    if (entry == null || current == null) return identical(entry, current);
+    return current.isActive &&
+        current.userId == entry.userId &&
+        current.token == entry.token;
+  }
 
   bool get _shouldRunChat =>
       _showChat &&
@@ -482,6 +538,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
 
   void _scheduleExpiryTimer() {
     _expiryTimer?.cancel();
+    if (_removedByModerator) return;
     final delay = tableGroupTimeUntilExpiry(_group, _now());
     if (delay == null) return;
     _expiryTimer = Timer(delay, _handleExpiry);
@@ -583,7 +640,10 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     }
     _updateView(() => _gameLauncherOpen = true);
     try {
-      final mode = await showTableGroupGameLauncherSheet(context);
+      final mode = await showTableGroupGameLauncherSheet(
+        context,
+        wrapContent: _tableOverlayContent,
+      );
       if (!mounted || mode == null || !_shouldRunChat) return;
       final latestGame = _gameState.game;
       if (_gameState.loading ||

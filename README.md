@@ -59,6 +59,15 @@ Debug builds can fall back to the local development default in
 `lib/core/network/network_config.dart`. Non-debug builds require
 `SOUNDCONNECT_BASE_URL` and enforce HTTPS.
 
+For Google sign-in on Android, register the app package and signing certificate
+with Google and build with `--dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>`.
+Use the same web OAuth client ID as the backend audience. Push-enabled builds
+can also read it from the web client entry in their environment's
+`android/app/google-services.json`. Google signup supports listener and musician
+profiles, and venue and studio applications reviewed by an administrator.
+For a staging APK, register the certificate used to sign the installed APK and
+include its native OAuth client ID in the backend's `GOOGLE_AUTHORIZED_PRESENTERS`.
+
 Media delivery is HTTPS-only, including when the API uses a local HTTP URL.
 Use the normal backend media/storage configuration for uploaded content.
 

@@ -240,6 +240,27 @@ void main() {
       );
     });
 
+    test(
+      'cancels a job using only its version and reads its terminal status',
+      () async {
+        final api = RecordingApiClient(
+          (_) => {
+            ..._jobJson(),
+            'status': 'CANCELLED',
+            'interactionBlocked': true,
+          },
+        );
+        final result = await CollabRepositoryImpl(
+          api,
+        ).cancelJob('job-1', expectedVersion: 3);
+        expect(api.lastRequest.method, RecordedHttpMethod.post);
+        expect(api.lastRequest.path, '/api/v1/collabs/jobs/job-1/cancel');
+        expect(api.lastRequest.body, {'expectedVersion': 3});
+        expect(result.data!.status, CollabJobStatus.cancelled);
+        expect(result.data!.interactionBlocked, isTrue);
+      },
+    );
+
     test('unknown status fails safely as a contract error', () async {
       final api = RecordingApiClient(
         (_) => _listingJson(status: 'FUTURE_SERVER_STATUS'),

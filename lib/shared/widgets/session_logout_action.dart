@@ -186,7 +186,12 @@ class SessionLogoutMenuTile extends StatelessWidget {
 }
 
 class SessionLogoutIconButton extends StatefulWidget {
-  const SessionLogoutIconButton({super.key});
+  const SessionLogoutIconButton({
+    super.key,
+    this.icon = Icons.manage_accounts_outlined,
+  });
+
+  final IconData icon;
 
   @override
   State<SessionLogoutIconButton> createState() =>
@@ -208,7 +213,7 @@ class _SessionLogoutIconButtonState extends State<SessionLogoutIconButton> {
               dimension: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.manage_accounts_outlined),
+          : Icon(widget.icon),
     );
   }
 

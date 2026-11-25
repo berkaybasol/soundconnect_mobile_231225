@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
@@ -11,6 +12,15 @@ import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/error/studio_rejection_error.dart';
+import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/google_auth_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/business_registration_details.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/location/presentation/cubit/location_cubit.dart';
+import 'support/auth_widget_test_support.dart' show FakeLocationRepository;
+import 'venue_application_session_test.dart'
+    show applicantToken, applicantId, applicationId;
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/auth_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
@@ -26,8 +36,17 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/verify_co
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 
 void main() {
+  const studioName = 'Kovan Stüdyo';
+  const reason =
+      'Bina numarası eksik olduğu için stüdyonun adresini doğrulayamadık.';
+  const rejectedStudio = StudioRejectionError(
+    code: '1112',
+    businessName: studioName,
+    rejectionReason: reason,
+  );
   late _RecordingAuthRepository repository;
   late AuthCubit cubit;
   late _MemoryTokenStore tokenStore;
@@ -110,9 +129,9 @@ void main() {
     expect(fields, findsNWidgets(2));
     expect(tester.widget<TextField>(fields.at(1)).obscureText, isTrue);
     final googleButton = tester.widget<OutlinedButton>(
-      find.byKey(const Key('google-sign-in-unavailable')),
+      find.byKey(const Key('google-sign-in')),
     );
-    expect(googleButton.onPressed, isNull);
+    expect(googleButton.onPressed, isNotNull);
 
     await tester.tap(find.byIcon(Icons.visibility_off_outlined));
     await tester.pump();
@@ -130,6 +149,397 @@ void main() {
     expect(find.text('kullanıcı adı boş olamaz'), findsOneWidget);
     expect(repository.loginCalls, 0);
   });
+
+  Future<void> startGoogle(
+    WidgetTester tester,
+    _GoogleRepository google,
+  ) async {
+    serviceLocator.registerSingleton<GoogleAuthRepository>(google);
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthCubit>.value(value: cubit),
+          BlocProvider<LocationCubit>(
+            create: (_) => LocationCubit(FakeLocationRepository()),
+          ),
+        ],
+        child: MaterialApp(
+          home: const LoginScreen(),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          routes: {
+            AppRoutes.listenerProfileChoice: (_) =>
+                const Scaffold(body: Text('listener-choice')),
+            AppRoutes.musicianProfile: (_) =>
+                const Scaffold(body: Text('musician-profile')),
+            AppRoutes.studioProfile: (_) =>
+                const Scaffold(body: Text('studio-profile')),
+            AppRoutes.venuePending: (_) =>
+                const Scaffold(body: Text('venue-status')),
+          },
+        ),
+      ),
+    );
+    final button = find.byKey(const Key('google-sign-in'));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pump();
+    await tester.runAsync(() async {});
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> chooseGoogleRole(WidgetTester tester, String roleLabel) async {
+    expect(find.byType(RegisterScreen), findsOneWidget);
+    expect(find.text("SoundConnect'te ne yapmak istiyorsun?"), findsOneWidget);
+    expect(find.byType(CheckboxListTile), findsNothing);
+    final role = find.text(roleLabel);
+    await tester.ensureVisible(role);
+    await tester.tap(role);
+    await tester.tap(find.text('Devam et'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kullanıcı adı oluştur'), findsOneWidget);
+  }
+
+  Future<void> enterGoogleUsername(WidgetTester tester, String username) async {
+    final field = find.descendant(
+      of: find.byKey(const Key('register-username-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(field, username);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'Google account selection can be cancelled without starting a session',
+    (tester) async {
+      final google = _GoogleRepository()..idToken = null;
+      await startGoogle(tester, google);
+      expect(google.lookups, 0);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+      expect(find.byType(LoginScreen), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Google username remains usable with the keyboard on a small phone',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 640);
+      addTearDown(tester.view.reset);
+      await startGoogle(tester, _GoogleRepository());
+      await chooseGoogleRole(tester, 'Sosyal Deneyim');
+
+      final field = find.byKey(const Key('register-username-field'));
+      await tester.tap(field);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(field);
+      expect(field.hitTestable(), findsOneWidget);
+      expect(find.text('Hesabımı oluştur').hitTestable(), findsOneWidget);
+    },
+  );
+
+  testWidgets('Google email conflict keeps the password login available', (
+    tester,
+  ) async {
+    final google = _GoogleRepository()..errorCode = '1116';
+    await startGoogle(tester, google);
+    expect(find.textContaining('Kullanıcı adın ve şifrenle'), findsOneWidget);
+    expect(sessionManager.session.isAuthenticated, isFalse);
+    expect(google.completions, isEmpty);
+  });
+
+  const studioWaiting = LoginResult(
+    token: '',
+    status: UserStatus.pendingStudioRequest,
+    userId: 'user-id',
+    applicationId: 'application-id',
+  );
+  testWidgets(
+    'Google studio refresh with expired proof rejects a different account before lookup',
+    (tester) async {
+      String proof(String subject) =>
+          'header.${base64Url.encode(utf8.encode(jsonEncode({'sub': subject})))}.signature';
+      final google = _GoogleRepository()
+        ..existing = studioWaiting
+        ..idToken = proof('applicant');
+      await startGoogle(tester, google);
+      google
+        ..errorCode = '1101'
+        ..idToken = proof('someone-else');
+      final check = find.text('Başvuru durumunu kontrol et');
+      await tester.ensureVisible(check);
+      await tester.tap(check);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Başvurduğun Google hesabını seçerek tekrar dene.'),
+        findsOneWidget,
+      );
+      expect(google.lookups, 2);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+      await tester.ensureVisible(find.text('Giriş ekranına dön'));
+      await tester.tap(find.text('Giriş ekranına dön'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+    },
+  );
+  for (final studio in [false, true]) {
+    testWidgets(
+      'new Google business application sends its own fields and opens its status, studio=$studio',
+      (tester) async {
+        tester.view.physicalSize = const Size(500, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final google = _GoogleRepository()
+          ..completed = studio
+              ? studioWaiting
+              : LoginResult(
+                  token: applicantToken(),
+                  status: UserStatus.pendingVenueRequest,
+                  userId: applicantId,
+                  applicationId: applicationId,
+                  sessionScope: 'VENUE_APPLICATION',
+                );
+        await startGoogle(tester, google);
+        await chooseGoogleRole(
+          tester,
+          studio ? 'Stüdyo temsilcisiyim' : 'Mekan temsilcisiyim',
+        );
+        await enterGoogleUsername(tester, 'MyPlace');
+        await tester.tap(find.text('Devam et'));
+        await tester.pumpAndSettle();
+        expect(google.completions, isEmpty);
+        for (final entry in {
+          'business-name-field': '  My Place  ',
+          'business-phone-field': '5551234567',
+          'business-address-field': '  Moda  ',
+        }.entries) {
+          final field = find.descendant(
+            of: find.byKey(Key(entry.key)),
+            matching: find.byType(TextField),
+          );
+          await tester.ensureVisible(field);
+          await tester.enterText(field, entry.value);
+        }
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        final boxes = find.byType(DropdownButtonFormField<String>);
+        var index = 0;
+        for (final item in ['Istanbul', 'Kadikoy', 'Moda']) {
+          await tester.ensureVisible(boxes.at(index));
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<DropdownButtonFormField<String>>(boxes.at(index))
+                .onChanged,
+            isNotNull,
+          );
+          await tester.tap(boxes.at(index));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(item).last);
+          await tester.pumpAndSettle();
+          index++;
+        }
+        expect(find.byType(CheckboxListTile), findsNothing);
+        final submit = find.text('Başvurumu gönder');
+        await tester.ensureVisible(submit);
+        await tester.tap(submit);
+        await tester.pump();
+        await tester.runAsync(() async {});
+        await tester.pumpAndSettle();
+        expect(google.details?.toJson(), {
+          if (studio) ...{
+            'studioName': 'my place',
+            'studioPhone': '05551234567',
+            'studioAddress': 'Moda',
+          } else ...{
+            'venueName': 'my place',
+            'phone': '5551234567',
+            'venueAddress': 'Moda',
+          },
+          'cityId': 'city-1',
+          'districtId': 'district-1',
+          'neighborhoodId': 'neighborhood-1',
+        });
+        expect(google.completions, [
+          ('myplace', studio ? 'ROLE_STUDIO' : 'ROLE_VENUE', true),
+        ]);
+        expect(
+          find.text(studio ? 'Başvuru durumunu kontrol et' : 'venue-status'),
+          findsOneWidget,
+        );
+        expect(sessionManager.session.isVenueApplicationSession, !studio);
+        if (studio) {
+          await tester.ensureVisible(find.text('Giriş ekranına dön'));
+          await tester.tap(find.text('Giriş ekranına dön'));
+          await tester.pumpAndSettle();
+        }
+        if (sessionManager.session.isAuthenticated) {
+          await sessionManager.logout();
+        }
+      },
+    );
+  }
+  for (final approved in [true, false]) {
+    testWidgets(
+      'returning Google studio applicant rechecks decision in place, approved=$approved',
+      (tester) async {
+        final google = _GoogleRepository()..existing = studioWaiting;
+        await startGoogle(tester, google);
+        expect(sessionManager.session.isAuthenticated, isFalse);
+        final check = find.text('Başvuru durumunu kontrol et');
+        expect(check, findsOneWidget);
+        await tester.ensureVisible(check);
+        await tester.tap(check);
+        await tester.pumpAndSettle();
+        expect(find.text('Başvurunun incelemesi sürüyor.'), findsOneWidget);
+        if (approved) {
+          google.existing = LoginResult(
+            token: _token(role: 'ROLE_STUDIO'),
+            userId: 'user-id',
+            roles: const ['ROLE_STUDIO'],
+          );
+        } else {
+          google.rejection = rejectedStudio;
+        }
+        await tester.ensureVisible(check);
+        await tester.tap(check);
+        await tester.pump();
+        await tester.runAsync(() async {});
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            approved ? 'studio-profile' : 'Stüdyo başvurun reddedildi.',
+          ),
+          findsOneWidget,
+        );
+        if (!approved) {
+          expect(find.text(studioName), findsOneWidget);
+          expect(find.text(reason), findsOneWidget);
+        }
+        expect(sessionManager.session.isAuthenticated, approved);
+        expect(google.completions, isEmpty);
+        if (approved) await sessionManager.logout();
+      },
+    );
+  }
+
+  for (final google in [false, true]) {
+    testWidgets('rejected studio reads its reason at sign-in, Google=$google', (
+      tester,
+    ) async {
+      if (google) {
+        await startGoogle(
+          tester,
+          _GoogleRepository()..rejection = rejectedStudio,
+        );
+      } else {
+        repository.loginResult = Result.failure(
+          StudioRejectionError.forLogin(rejectedStudio),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: BlocProvider<AuthCubit>.value(
+              value: cubit,
+              child: const LoginScreen(),
+            ),
+            onGenerateRoute: AppRouter.onGenerateRoute,
+          ),
+        );
+        await tester.enterText(find.byType(TextField).first, 'studio');
+        await tester.enterText(find.byType(TextField).last, 'password123');
+        _invokeLoginSubmit(tester);
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(studioName), findsOneWidget);
+      expect(find.text(reason), findsOneWidget);
+      expect(find.text('Ret gerekçesi'), findsOneWidget);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+    });
+  }
+  for (final failure in ['1118', 'google_configuration']) {
+    testWidgets(
+      'Google error $failure offers the normal email registration form',
+      (tester) async {
+        final google = _GoogleRepository()..errorCode = failure;
+        await startGoogle(tester, google);
+        await tester.tap(find.text('E-postayla kayıt'));
+        await tester.pumpAndSettle();
+        expect(find.byType(RegisterScreen), findsOneWidget);
+        expect(find.text('Kullanıcı adı oluştur'), findsOneWidget);
+        expect(sessionManager.session.isAuthenticated, isFalse);
+      },
+    );
+  }
+
+  testWidgets(
+    'existing Google musician uses the normal authenticated destination',
+    (tester) async {
+      final google = _GoogleRepository()
+        ..existing = LoginResult(token: _token(role: 'ROLE_MUSICIAN'));
+      await startGoogle(tester, google);
+      expect(find.text('musician-profile'), findsOneWidget);
+      expect(google.completions, isEmpty);
+      await sessionManager.logout();
+    },
+  );
+
+  testWidgets(
+    'Google listener signs up once from the shared steps without another checkbox',
+    (tester) async {
+      final google = _GoogleRepository();
+      await startGoogle(tester, google);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+      await chooseGoogleRole(tester, 'Sosyal Deneyim');
+      await enterGoogleUsername(tester, '  MyName ');
+      expect(google.completions, isEmpty);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+      expect(find.byType(CheckboxListTile), findsNothing);
+      final submit = find.text('Hesabımı oluştur');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.runAsync(() async {});
+      await tester.pumpAndSettle();
+      expect(google.completions, [('myname', 'ROLE_LISTENER', true)]);
+      expect(find.text('listener-choice'), findsOneWidget);
+      expect(sessionManager.session.isAuthenticated, isTrue);
+      await sessionManager.logout();
+    },
+  );
+
+  testWidgets(
+    'Google musician can correct a taken name without restarting registration',
+    (tester) async {
+      final google = _GoogleRepository()..completionErrorCode = '1002';
+      await startGoogle(tester, google);
+      await chooseGoogleRole(tester, 'Muzisyenim');
+      await enterGoogleUsername(tester, 'TakenName');
+      await tester.tap(find.text('Hesabımı oluştur'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Bu kullanıcı adı alınmış. Farklı bir ad seç.'),
+        findsOneWidget,
+      );
+      expect(find.text('Kullanıcı adı oluştur'), findsOneWidget);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+
+      google.completionErrorCode = null;
+      await enterGoogleUsername(tester, 'NewName');
+      await tester.tap(find.text('Hesabımı oluştur'));
+      await tester.pump();
+      await tester.runAsync(() async {});
+      await tester.pumpAndSettle();
+      expect(google.lookups, 1);
+      expect(google.completions, [
+        ('takenname', 'ROLE_MUSICIAN', true),
+        ('newname', 'ROLE_MUSICIAN', true),
+      ]);
+      expect(find.text('musician-profile'), findsOneWidget);
+      await sessionManager.logout();
+    },
+  );
 
   testWidgets('rejects an empty password before authentication', (
     tester,
@@ -205,8 +615,8 @@ void main() {
         app(
           includeSourceRoute: true,
           routes: <String, WidgetBuilder>{
-            AppRoutes.home: (_) =>
-                const Scaffold(body: Text('home-destination')),
+            AppRoutes.musicianProfile: (_) =>
+                const Scaffold(body: Text('musician-profile-destination')),
             AppRoutes.register: (_) =>
                 const Scaffold(body: Text('register-destination')),
             AppRoutes.forgotPassword: (_) =>
@@ -238,7 +648,7 @@ void main() {
       await tester.runAsync(() async {});
       await tester.pumpAndSettle();
 
-      expect(find.text('home-destination'), findsOneWidget);
+      expect(find.text('musician-profile-destination'), findsOneWidget);
       expect(sessionManager.session.isAuthenticated, isTrue);
       expect(tester.takeException(), isNull);
 
@@ -375,8 +785,8 @@ void main() {
               value: cubit,
               child: const OtpVerifyScreen(),
             ),
-            AppRoutes.home: (_) =>
-                const Scaffold(body: Text('home-destination')),
+            AppRoutes.musicianProfile: (_) =>
+                const Scaffold(body: Text('musician-profile-destination')),
           },
         ),
       );
@@ -400,7 +810,7 @@ void main() {
       expect(tokenStore.token, isNull);
       expect(cubit.state.loginResult, isNull);
       expect(sessionManager.session.isAuthenticated, isFalse);
-      expect(find.text('home-destination'), findsNothing);
+      expect(find.text('musician-profile-destination'), findsNothing);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -420,7 +830,7 @@ void main() {
       expect(repository.loginCalls, 2);
       expect(repository.lastUsername, 'berna');
       expect(repository.lastPassword, 'new-password');
-      expect(find.text('home-destination'), findsOneWidget);
+      expect(find.text('musician-profile-destination'), findsOneWidget);
       expect(sessionManager.session.isAuthenticated, isTrue);
       expect(tester.takeException(), isNull);
       await sessionManager.logout();
@@ -599,6 +1009,51 @@ void _invokeLoginSubmit(WidgetTester tester) {
   final onTap = tester.widget<InkWell>(submit).onTap;
   expect(onTap, isNotNull);
   onTap!();
+}
+
+class _GoogleRepository implements GoogleAuthRepository {
+  StudioRejectionError? rejection;
+  String? idToken = 'mock-google-identity';
+  String? errorCode;
+  String? completionErrorCode;
+  LoginResult? existing;
+  LoginResult? completed;
+  BusinessRegistrationDetails? details;
+  int lookups = 0;
+  final completions = <(String, String, bool)>[];
+  @override
+  Future<String?> chooseAccount() async => idToken;
+  @override
+  Future<LoginResult?> signIn(String idToken, int revision) async {
+    lookups++;
+    if (rejection != null) throw ApiException(rejection!);
+    if (errorCode != null) {
+      throw ApiException(AppError(code: errorCode!, message: ''));
+    }
+    return existing;
+  }
+
+  @override
+  Future<LoginResult> complete({
+    required String idToken,
+    required String username,
+    required String role,
+    required bool consent,
+    required int revision,
+    BusinessRegistrationDetails? business,
+  }) async {
+    completions.add((username, role, consent));
+    if (completionErrorCode != null) {
+      throw ApiException(AppError(code: completionErrorCode!, message: ''));
+    }
+    details = business;
+    return completed ??
+        LoginResult(
+          token: _token(role: role),
+          username: username,
+          requiresListenerProfileChoice: role == 'ROLE_LISTENER',
+        );
+  }
 }
 
 class _RecordingAuthRepository extends AuthRepository {

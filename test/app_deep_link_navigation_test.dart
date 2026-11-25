@@ -16,6 +16,7 @@ import 'package:soundconnect_23_12_25codx/core/deep_link/app_deep_link.dart';
 import 'package:soundconnect_23_12_25codx/core/deep_link/pending_app_deep_link_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/google_auth_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
@@ -119,6 +120,42 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await source.close();
   });
+
+  testWidgets(
+    'a pending listing survives entering and cancelling Google registration at role selection',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      setupDependencies();
+      await serviceLocator.unregister<GoogleAuthRepository>();
+      serviceLocator.registerSingleton<GoogleAuthRepository>(_NewGoogleUser());
+      final inbox = AppDeepLinkInbox(store: MemoryPendingAppDeepLinkStore());
+      await serviceLocator.unregister<AppDeepLinkInbox>();
+      serviceLocator.registerSingleton<AppDeepLinkInbox>(inbox);
+      await inbox.record(
+        const AppDeepLinkTarget.listing(listingId: _listingId),
+      );
+      await tester.pumpWidget(
+        SoundConnectApp(initialTokenFuture: Future<String?>.value(null)),
+      );
+      await tester.pumpAndSettle();
+      final google = find.byKey(const Key('google-sign-in'));
+      await tester.ensureVisible(google);
+      await tester.tap(google);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(
+        find.text("SoundConnect'te ne yapmak istiyorsun?"),
+        findsOneWidget,
+      );
+      expect((await inbox.pending())?.target.listingId, _listingId);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect((await inbox.pending())?.target.listingId, _listingId);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'theme changes preserve login input, navigator, blocs and pending link',
@@ -315,9 +352,11 @@ void main() {
       await inbox.complete(externalClaim.link!);
       await tester.pumpAndSettle();
 
-      expect(find.text('home destination'), findsOneWidget);
+      expect(find.text('musician profile destination'), findsOneWidget);
       expect(
-        observer.pushedRouteNames.where((name) => name == AppRoutes.home),
+        observer.pushedRouteNames.where(
+          (name) => name == AppRoutes.musicianProfile,
+        ),
         hasLength(1),
       );
       expect(await inbox.pending(), isNull);
@@ -358,7 +397,7 @@ void main() {
     await cubit.login(username: 'listener', password: 'password123');
     await tester.pumpAndSettle();
 
-    expect(find.text('listener destination'), findsOneWidget);
+    expect(find.text('event discovery destination'), findsOneWidget);
     expect(find.textContaining('listing:'), findsNothing);
     expect(
       find.text(
@@ -381,16 +420,17 @@ Route<dynamic> _testRoute(RouteSettings settings) {
       builder: (_) => Scaffold(body: Text('listing:${args.initialListingId}')),
     );
   }
-  if (settings.name == AppRoutes.listenerProfile) {
+  if (settings.name == AppRoutes.eventDiscovery) {
     return MaterialPageRoute<void>(
       settings: settings,
-      builder: (_) => const Scaffold(body: Text('listener destination')),
+      builder: (_) => const Scaffold(body: Text('event discovery destination')),
     );
   }
-  if (settings.name == AppRoutes.home) {
+  if (settings.name == AppRoutes.musicianProfile) {
     return MaterialPageRoute<void>(
       settings: settings,
-      builder: (_) => const Scaffold(body: Text('home destination')),
+      builder: (_) =>
+          const Scaffold(body: Text('musician profile destination')),
     );
   }
   throw StateError('Unexpected route: ${settings.name}');
@@ -405,6 +445,14 @@ class _FakeAppLinkSource implements AppLinkSource {
   void add(Uri uri) => _controller.add(uri);
 
   Future<void> close() => _controller.close();
+}
+
+class _NewGoogleUser extends Fake implements GoogleAuthRepository {
+  @override
+  Future<String?> chooseAccount() async => 'test-google-token';
+
+  @override
+  Future<LoginResult?> signIn(String idToken, int revision) async => null;
 }
 
 class _RecordingNavigatorObserver extends NavigatorObserver {

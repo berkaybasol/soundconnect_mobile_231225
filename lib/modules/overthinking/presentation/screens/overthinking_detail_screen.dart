@@ -184,7 +184,15 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
   @override
   void didPop() => _suspend();
   @override
-  void didPopNext() => _schedule();
+  void didPopNext() {
+    if (mounted &&
+        _cubit?.isSessionCurrent == true &&
+        !requireAuthorVisibility) {
+      unawaited(_cubit!.refreshPost(post.id));
+    }
+    _schedule();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) _suspend();
@@ -259,7 +267,10 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
                 break;
               }
             }
-            final currentPost = current;
+            final currentPost = cubit.visiblePost(current);
+            if (currentPost == null) {
+              return const OverthinkingUnavailableScreen(postMissing: true);
+            }
             final hidden =
                 currentPost.anonymous && !currentPost.hasVisibleAuthor;
             final requesting = state.revealRequestingIds.contains(
@@ -276,6 +287,17 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
                     post: currentPost,
                     enabled: cubit.canWrite,
                   ),
+                  if (cubit.canWrite)
+                    ContentReportMenu(
+                      kind: ContentReportKind.overthinkingPost,
+                      targetId: currentPost.id,
+                      ownerId: currentPost.authorId,
+                      label: 'Paylaşımı bildir',
+                      preview: currentPost.title,
+                      isCurrent: () =>
+                          cubit.isSessionCurrent &&
+                          !cubit.isPostUnavailable(currentPost.id),
+                    ),
                   Padding(
                     padding: EdgeInsets.only(right: 20),
                     child: Icon(

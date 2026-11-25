@@ -163,7 +163,15 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
       );
     } else {
       if (!_isCurrent(generation)) return;
-      emit(state.copyWith(isApplying: false, actionError: result.error));
+      emit(
+        state.copyWith(
+          listing: result.error?.isInteractionUnavailable == true
+              ? state.listing?.copyWith(interactionBlocked: true)
+              : state.listing,
+          isApplying: false,
+          actionError: result.error,
+        ),
+      );
     }
   }
 

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../data/google_auth_repository.dart';
+import '../screens/login_screen.dart';
+
+enum _RegistrationMethod { email, google }
 
 // Weak navigator keys keep separate navigation stacks independent without
 // retaining disposed navigators. The lock covers the sheet and registration.
@@ -17,7 +21,7 @@ Future<void> openRegistrationOptions(BuildContext context) async {
 
   _registrationInProgress[navigator] = true;
   try {
-    final continueWithEmail = await showModalBottomSheet<bool>(
+    final method = await showModalBottomSheet<_RegistrationMethod>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -35,11 +39,18 @@ Future<void> openRegistrationOptions(BuildContext context) async {
     );
     // Never navigate from a disposed sheet context or a page replaced while
     // the options were open. Dismissal is not a registration choice.
-    if (continueWithEmail == true &&
+    if (method != null &&
         context.mounted &&
         navigator.mounted &&
         sourceRoute?.isCurrent == true) {
-      await navigator.pushNamed(AppRoutes.register);
+      if (method == _RegistrationMethod.google) {
+        await navigator.pushNamed(
+          AppRoutes.login,
+          arguments: const LoginRouteArgs(startGoogleSignIn: true),
+        );
+      } else {
+        await navigator.pushNamed(AppRoutes.register);
+      }
     }
   } finally {
     _registrationInProgress[navigator] = false;
@@ -57,12 +68,12 @@ class _RegistrationOptionsSheet extends StatefulWidget {
 class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
   bool _finished = false;
 
-  void _finish([bool? continueWithEmail]) {
+  void _finish([_RegistrationMethod? method]) {
     if (!mounted || _finished || ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
     _finished = true;
-    Navigator.of(context).pop(continueWithEmail);
+    Navigator.of(context).pop(method);
   }
 
   @override
@@ -116,68 +127,48 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            OutlinedButton(
-              key: const Key('registration-google-unavailable'),
-              onPressed: null,
-              style: OutlinedButton.styleFrom(
-                disabledForegroundColor: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
-                side: BorderSide(color: Theme.of(context).colorScheme.outline),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
+            if (GoogleAuthRepository.supported)
+              OutlinedButton(
+                key: const Key('registration-google'),
+                onPressed: () => _finish(_RegistrationMethod.google),
+                style: OutlinedButton.styleFrom(
+                  disabledForegroundColor: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  minimumSize: const Size(0, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
-                minimumSize: const Size(0, 60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                child: Row(
+                  children: [
+                    ExcludeSemantics(
+                      child: Image.asset(
+                        'assets/google.png',
+                        width: 21,
+                        height: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Google ile devam et',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  ExcludeSemantics(
-                    child: Image.asset(
-                      'assets/google.png',
-                      width: 21,
-                      height: 21,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text(
-                          'Google ile devam et',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Yakında',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 12),
             // A wrapping label keeps the normal registration action readable at
             // large accessibility text sizes, without changing shared buttons.
@@ -200,7 +191,7 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       key: const Key('registration-email-continue'),
-                      onTap: () => _finish(true),
+                      onTap: () => _finish(_RegistrationMethod.email),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 58.4),
                         child: Padding(

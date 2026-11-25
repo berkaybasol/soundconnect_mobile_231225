@@ -11,6 +11,10 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_calend
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/musician_profile_calendar_slot.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/weekly_event_carousel.dart';
 
+// After midnight in Istanbul, the API's event date is a day ahead of UTC.
+final _now = DateTime.utc(2026, 11, 24, 23, 26);
+final _eventDay = DateTime.utc(2026, 11, 25);
+
 void main() {
   late _Repository repository;
   setUp(() async {
@@ -33,6 +37,7 @@ void main() {
                 repository: repository,
                 refreshToken: refresh,
                 compactTitle: compact,
+                now: () => _now,
               ),
             ],
           ),
@@ -342,7 +347,7 @@ VenueEventDetail _event({String id = 'event'}) => VenueEventDetail(
   musicianProfileId: 'artist',
   performerType: 'MUSICIAN',
   title: 'Gece',
-  eventDate: DateTime.now(),
+  eventDate: _eventDay,
   venueId: 'venue',
   venueName: 'SoundConnect Ankara',
   startTime: '21:00:00',
@@ -354,13 +359,15 @@ MusicianCalendarPage _page({
   List<VenueEventDetail>? events,
   int page = 0,
   bool hasNext = false,
+  DateTime? startDate,
+  DateTime? endDate,
 }) {
-  final today = DateTime.now();
+  final start = startDate ?? _eventDay;
   return MusicianCalendarPage(
     profileId: profile,
     visible: visible,
-    startDate: today,
-    endDate: today.add(const Duration(days: 6)),
+    startDate: start,
+    endDate: endDate ?? start.add(const Duration(days: 6)),
     events: visible ? (events ?? []) : [],
     page: page,
     size: 20,
@@ -422,6 +429,8 @@ class _Repository extends Fake implements MusicianCalendarRepository {
         events: dated,
         page: page,
         hasNext: hasNext,
+        startDate: startDate,
+        endDate: endDate,
       ),
     );
   }

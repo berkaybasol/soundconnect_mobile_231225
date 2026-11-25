@@ -87,6 +87,10 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
           fit: BoxFit.cover,
           expandToFill: false,
           handleLifecycle: true,
+          deviceOrientationsOnFullScreen: const [DeviceOrientation.portraitUp],
+          deviceOrientationsAfterFullScreen: const [
+            DeviceOrientation.portraitUp,
+          ],
           controlsConfiguration: BetterPlayerControlsConfiguration(
             enablePlayPause: true,
             enableSkips: true,

@@ -77,7 +77,11 @@ void main() {
 
     expect(find.text('Kaydol'), findsOneWidget);
     expect(find.byType(TextField).hitTestable(), findsOneWidget);
-    expect(locationRepository.citiesCalls, 1);
+    expect(locationRepository.citiesCalls, 0);
+
+    await tester.drag(find.byType(PageView), const Offset(-450, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Kullanıcı adı oluştur').hitTestable(), findsOneWidget);
 
     await _tapPrimary(tester);
     await tester.pump();
@@ -119,6 +123,34 @@ void main() {
 
     expect(find.text('Kullanıcı adı oluştur'), findsOneWidget);
     expect(authRepository.registerCalls, 0);
+  });
+
+  testWidgets('an old availability result cannot advance an edited username', (
+    tester,
+  ) async {
+    _useLargeSurface(tester);
+    final pending = Completer<Result<UsernameAvailability>>();
+    authRepository.usernameAvailabilityCompleter = pending;
+    await tester.pumpWidget(app());
+
+    final field = find.byType(TextField).hitTestable();
+    await tester.enterText(field, 'old-name');
+    await _tapPrimary(tester);
+    expect(authRepository.lastUsernameAvailability, 'old-name');
+    await tester.enterText(field, 'new-name');
+    pending.complete(
+      const Result.success(
+        UsernameAvailability(username: 'old-name', available: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kullanıcı adı oluştur').hitTestable(), findsOneWidget);
+
+    authRepository.usernameAvailabilityCompleter = null;
+    await _tapPrimary(tester);
+    await tester.pumpAndSettle();
+    expect(authRepository.lastUsernameAvailability, 'new-name');
+    expect(find.text('E-posta adresini ekle').hitTestable(), findsOneWidget);
   });
 
   testWidgets('requires eight characters when registering', (tester) async {
@@ -230,6 +262,12 @@ void main() {
       expect(_primaryButton(tester).onPressed, isNull);
       expect(_primaryButton(tester).label, 'Kaydediliyor...');
 
+      final otherRole = find.text('Mekan temsilcisiyim');
+      await tester.ensureVisible(otherRole);
+      await tester.tap(otherRole);
+      await tester.pumpAndSettle();
+      expect(_primaryButton(tester).label, 'Kaydediliyor...');
+
       await tester.binding.handlePopRoute();
       await tester.pump();
       expect(find.byType(RegisterScreen), findsOneWidget);
@@ -279,6 +317,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(3));
+    expect(locationRepository.citiesCalls, 1);
     expect(
       tester
           .widget<GradientTextField>(

@@ -83,6 +83,7 @@ internal data class VenuePushPayload(
             ("TABLE_PARTICIPANT_LEFT" to "DEFAULT") to "Bir katılımcı masandan ayrıldı.",
             ("TABLE_REMOVED" to "DEFAULT") to "Masadan çıkarıldın.",
             ("TABLE_CANCELLED" to "OWNER_CANCELLED") to "Katıldığın masa kapatıldı.",
+            ("TABLE_CANCELLED" to "ADMIN_REMOVED") to "Masa yönetici tarafından yayından kaldırıldı.",
             ("TABLE_CANCELLED" to "OWNER_JOINED_ANOTHER_TABLE") to "Masa sahibi başka bir masaya katıldığı için masa kapatıldı.",
             ("TABLE_EXPIRED" to "DEFAULT") to "Katıldığın masanın süresi doldu.",
             ("BAND_INVITE_RECEIVED" to "DEFAULT") to "Yeni bir grup davetin var.",

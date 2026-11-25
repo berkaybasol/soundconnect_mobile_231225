@@ -31,54 +31,64 @@ class GradientOutlineButton extends StatelessWidget {
     final borderRadius = BorderRadius.circular(18);
     final isEnabled = onPressed != null && !loading;
 
-    return GradientOutline(
-      strokeWidth: strokeWidth,
-      colors: isEnabled
-          ? AppColors.decorativeGradient
-          : [theme.dividerColor, theme.dividerColor],
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Material(
-          color: backgroundColor ?? Colors.transparent,
-          child: InkWell(
-            onTap: isEnabled ? onPressed : null,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: 14,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (loading) ...[
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 10),
-                  ] else if (leading != null) ...[
-                    IconTheme(
-                      data: IconThemeData(
-                        color: isEnabled ? enabledTextColor : disabledTextColor,
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      child: GradientOutline(
+        strokeWidth: strokeWidth,
+        colors: isEnabled
+            ? AppColors.decorativeGradient
+            : [theme.dividerColor, theme.dividerColor],
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Material(
+            color: backgroundColor ?? Colors.transparent,
+            child: InkWell(
+              onTap: isEnabled ? onPressed : null,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: 14,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (loading) ...[
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      child: leading!,
+                      const SizedBox(width: 10),
+                    ] else if (leading != null) ...[
+                      IconTheme(
+                        data: IconThemeData(
+                          color: isEnabled
+                              ? enabledTextColor
+                              : disabledTextColor,
+                        ),
+                        child: leading!,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: maxLines,
+                        overflow: maxLines == null
+                            ? TextOverflow.clip
+                            : TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isEnabled
+                              ? enabledTextColor
+                              : disabledTextColor,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
                   ],
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: maxLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isEnabled ? enabledTextColor : disabledTextColor,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

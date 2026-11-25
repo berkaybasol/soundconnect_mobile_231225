@@ -14,9 +14,11 @@ class VenueApplicationDetail {
     required this.status,
     required this.venueName,
     this.venueId,
+    this.rejectionReason,
   });
   final String id, applicantUserId, status, venueName;
   final String? venueId;
+  final String? rejectionReason;
 
   factory VenueApplicationDetail.fromJson(Object? json) {
     if (json is! Map<String, dynamic> ||
@@ -30,12 +32,19 @@ class VenueApplicationDetail {
             : json['venueId'] != null)) {
       throw const FormatException('Invalid application detail');
     }
+    final reason = json['rejectionReason'];
     return VenueApplicationDetail(
       id: json['id'],
       applicantUserId: json['applicantUserId'],
       status: json['status'],
       venueName: json['venueName'],
       venueId: json['venueId'],
+      rejectionReason:
+          json['status'] == 'REJECTED' &&
+              reason is String &&
+              reason.trim().isNotEmpty
+          ? reason.trim()
+          : null,
     );
   }
 }

@@ -239,46 +239,54 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       Divider(height: 1, color: Theme.of(context).dividerColor),
                   itemBuilder: (context, index) {
                     final item = _searchResults[index];
+                    final available =
+                        item.type != ProfileSearchResultType.band ||
+                        item.bandContactAvailable;
                     return ListTile(
                       dense: true,
+                      enabled: available,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                       ),
-                      onTap: () {
-                        final targetId = item.targetId.trim();
-                        final supportedType = _supportsTargetType(item.type);
-                        if (targetId.isEmpty ||
-                            item.title.trim().isEmpty ||
-                            !supportedType) {
-                          _setFormError(
-                            'Bu profil etkinliğe eklenmek için geçerli değil.',
-                          );
-                          return;
-                        }
-                        _searchDebounce?.cancel();
-                        _searchToken++;
-                        _performerFocusNode.unfocus();
-                        _performerController.text = item.title;
-                        _performerController.selection =
-                            TextSelection.collapsed(
-                              offset: _performerController.text.length,
-                            );
-                        _updateState(() {
-                          _selectedPerformer = ProfileSearchResult(
-                            type: item.type,
-                            targetId: targetId,
-                            userId: item.userId,
-                            title: item.title.trim(),
-                            subtitle: item.subtitle,
-                            imageUrl: item.imageUrl,
-                            visibilityMode: item.visibilityMode,
-                          );
-                          _searchResults = [];
-                          _searchError = null;
-                          _searchLoading = false;
-                          _formError = null;
-                        });
-                      },
+                      onTap: !available
+                          ? null
+                          : () {
+                              final targetId = item.targetId.trim();
+                              final supportedType = _supportsTargetType(
+                                item.type,
+                              );
+                              if (targetId.isEmpty ||
+                                  item.title.trim().isEmpty ||
+                                  !supportedType) {
+                                _setFormError(
+                                  'Bu profil etkinliğe eklenmek için geçerli değil.',
+                                );
+                                return;
+                              }
+                              _searchDebounce?.cancel();
+                              _searchToken++;
+                              _performerFocusNode.unfocus();
+                              _performerController.text = item.title;
+                              _performerController.selection =
+                                  TextSelection.collapsed(
+                                    offset: _performerController.text.length,
+                                  );
+                              _updateState(() {
+                                _selectedPerformer = ProfileSearchResult(
+                                  type: item.type,
+                                  targetId: targetId,
+                                  userId: item.userId,
+                                  title: item.title.trim(),
+                                  subtitle: item.subtitle,
+                                  imageUrl: item.imageUrl,
+                                  visibilityMode: item.visibilityMode,
+                                );
+                                _searchResults = [];
+                                _searchError = null;
+                                _searchLoading = false;
+                                _formError = null;
+                              });
+                            },
                       leading: CircleAvatar(
                         radius: 17,
                         backgroundColor: scheme.surfaceContainer,
@@ -317,7 +325,9 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                         ),
                       ),
                       subtitle: Text(
-                        _performerSubtitle(item),
+                        available
+                            ? _performerSubtitle(item)
+                            : 'Grup şu anda iletişime açık değil.',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -326,7 +336,9 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                         ),
                       ),
                       trailing: Icon(
-                        Icons.add_rounded,
+                        available
+                            ? Icons.add_rounded
+                            : Icons.info_outline_rounded,
                         color: scheme.onSurfaceVariant,
                         size: 19,
                       ),

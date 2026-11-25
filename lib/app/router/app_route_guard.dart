@@ -1,4 +1,8 @@
 import '../../core/auth/auth_session.dart';
+import '../../modules/admin/domain/admin_panel_access.dart';
+import '../../modules/admin/domain/collab_report_admin_access.dart';
+import '../../modules/admin/domain/admin_user_directory.dart';
+import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/domain/system_health.dart';
 import '../../core/policy/access_policy.dart';
 import '../../core/policy/profile_feed_availability.dart';
@@ -35,6 +39,14 @@ class AppRouteGuard {
 
   static String? redirectFor(String? requestedRoute, AuthSession session) {
     final requested = requestedRoute ?? AppRoutes.login;
+    if (session.isSuspendedNotice) {
+      return requested == AppRoutes.accountSuspended
+          ? null
+          : AppRoutes.accountSuspended;
+    }
+    if (requested == AppRoutes.accountSuspended) {
+      return landingRouteFor(session);
+    }
     final isPublic =
         _anonymousRoutes.contains(requested) ||
         _publicProfileRoutes.contains(requested);
@@ -86,7 +98,7 @@ class AppRouteGuard {
           : AppRoutes.listenerProfileChoice;
     }
     if (isListener && requested == AppRoutes.listenerProfileChoice) {
-      return AppRoutes.listenerProfile;
+      return AppRoutes.eventDiscovery;
     }
     if (!ProfileFeedAvailability.enabled &&
         const {
@@ -117,14 +129,26 @@ class AppRouteGuard {
       return startRouteFor(session);
     }
 
-    if (_anonymousRoutes.contains(requested) ||
-        requested == AppRoutes.venuePending ||
-        requested == AppRoutes.studioPending ||
-        requested == AppRoutes.studioRejected) {
-      return startRouteFor(session);
+    if (_anonymousRoutes.contains(requested)) {
+      return landingRouteFor(session);
     }
 
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminUsers && !canReadAdminUsers(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminBacklineRequests &&
+        !canReadBacklineRequests(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminVenueSuggestions &&
+        !canReadVenueSuggestions(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminApplications &&
+        !ApplicationKind.values.any((kind) => kind.canRead(session))) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.adminSystemHealth &&
@@ -146,6 +170,18 @@ class AppRouteGuard {
     }
     if (requested == AppRoutes.adminMarketplaceReports &&
         !canManageMarketplaceReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminTableReports &&
+        !canManageTableReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminContentReports &&
+        !canManageContentReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminCollabReports &&
+        !canManageCollabReports(session)) {
       return startRouteFor(session);
     }
 
@@ -186,19 +222,45 @@ class AppRouteGuard {
     return null;
   }
 
-  static String startRouteFor(AuthSession session) {
+  static String? _requiredEntryRoute(AuthSession session) {
+    if (session.isSuspendedNotice) return AppRoutes.accountSuspended;
     if (!session.isAuthenticated) return AppRoutes.login;
     if (session.isPendingVenue) return AppRoutes.venuePending;
     if (session.isPendingStudio) return AppRoutes.studioPending;
     if (session.isRejectedStudio) return AppRoutes.studioRejected;
+    if (!session.isActive) return AppRoutes.login;
     if (session.isAdmin) return AppRoutes.adminDashboard;
+    if (session.requiresListenerProfileChoice &&
+        session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
+      return AppRoutes.listenerProfileChoice;
+    }
+    return null;
+  }
+
+  /// The destination after authentication or restoring the signed-in account.
+  static String landingRouteFor(AuthSession session) {
+    final requiredRoute = _requiredEntryRoute(session);
+    if (requiredRoute != null) return requiredRoute;
+    if (session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
+      return AppRoutes.eventDiscovery;
+    }
+    final businessProfile = approvedMembershipProfileFor(session);
+    if (businessProfile != null) return businessProfile;
+    if (session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN'])) {
+      return AppRoutes.musicianProfile;
+    }
+    return startRouteFor(session);
+  }
+
+  /// Existing module home used for access-denied fallbacks and HOME notifications.
+  static String startRouteFor(AuthSession session) {
+    final requiredRoute = _requiredEntryRoute(session);
+    if (requiredRoute != null) return requiredRoute;
     if (AccessPolicy.canAccessBackstage(session.roles)) {
       return AppRoutes.home;
     }
     if (session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
-      return session.requiresListenerProfileChoice
-          ? AppRoutes.listenerProfileChoice
-          : AppRoutes.listenerProfile;
+      return AppRoutes.listenerProfile;
     }
     return AppRoutes.login;
   }

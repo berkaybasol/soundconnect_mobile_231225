@@ -219,7 +219,7 @@ void _registerGuestEventDiscoveryScreen2() {
         findsOneWidget,
       );
       expect(find.text('Google ile devam et'), findsOneWidget);
-      expect(find.text('Yakında'), findsOneWidget);
+      expect(find.byKey(const Key('registration-google')), findsOneWidget);
       expect(find.text('REGISTER DESTINATION'), findsNothing);
       await tester.tap(find.byKey(const Key('registration-email-continue')));
       await tester.pumpAndSettle();

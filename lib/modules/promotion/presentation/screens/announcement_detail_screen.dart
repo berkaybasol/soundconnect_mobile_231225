@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../analytics/data/analytics_tracker.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
 import '../../../engagement/data/engagement_repository_impl.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -59,6 +60,8 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
   bool _revoked = false;
   bool _openingVideo = false;
   int _epoch = 0;
+  late final AppLifecycleListener _lifecycle;
+  StreamSubscription<UserBlockChange>? _blockChanges;
   bool get _current =>
       mounted &&
       !_revoked &&
@@ -69,6 +72,20 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
     super.initState();
     _identity = announcementSessionIdentity(_sessions.session);
     _sessions.addListener(_sessionChanged);
+    _lifecycle = AppLifecycleListener(onResume: _refreshVisibility);
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockChanges = serviceLocator<UserBlockRepository>().changes.listen((
+        change,
+      ) {
+        if (change.actorId == _sessions.session.userId) _refreshVisibility();
+      });
+    }
+    unawaited(_load());
+  }
+
+  void _refreshVisibility() {
+    if (!_current) return;
+    _stats.invalidate('ANNOUNCEMENT', widget.id);
     unawaited(_load());
   }
 
@@ -252,6 +269,8 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
   @override
   void dispose() {
     _epoch++;
+    _lifecycle.dispose();
+    _blockChanges?.cancel();
     _sessions.removeListener(_sessionChanged);
     unawaited(_stats.close());
     unawaited(_comments.close());

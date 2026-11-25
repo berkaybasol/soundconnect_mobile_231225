@@ -53,6 +53,14 @@ abstract class StudioRoomRepository {
     int size = 100,
   });
 
+  Future<Result<StudioPage<StudioReservation>>> listCustomerReservations({
+    int page = 0,
+    int size = 20,
+  });
+  Future<Result<StudioReservation>> getCustomerReservation(
+    String reservationId,
+  );
+
   Future<Result<StudioReservation>> createReservation({
     required String roomId,
     required DateTime date,

@@ -13,6 +13,7 @@ import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../domain/engagement_repository.dart';
 import '../../domain/entities/comment_user_summary.dart';
 import '../../domain/entities/like_user_page.dart';
@@ -43,10 +44,12 @@ class LikeUsersSheet extends StatefulWidget {
 
 class _LikeUsersSheetState extends State<LikeUsersSheet> {
   final _scroll = ScrollController();
+  late final AppLifecycleListener _lifecycle;
   final _users = <CommentUserSummary>[];
   final _userIds = <String>{};
   final _cursors = <String>{};
   late AuthSession _session;
+  StreamSubscription<UserBlockChange>? _blockChanges;
   int _generation = 0;
   String? _nextCursor;
   bool _loading = false;
@@ -68,7 +71,18 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
   void initState() {
     super.initState();
     _session = widget.sessions.session;
+    _lifecycle = AppLifecycleListener(onResume: _refreshPage);
     widget.sessions.addListener(_sessionChanged);
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockChanges = serviceLocator<UserBlockRepository>().changes.listen((
+        change,
+      ) {
+        if (!mounted || change.actorId != _session.userId || _invalidated) {
+          return;
+        }
+        _refreshPage();
+      });
+    }
     _scroll.addListener(_nearEnd);
     unawaited(_load());
   }
@@ -87,16 +101,26 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
     } else if (oldWidget.targetType != widget.targetType ||
         oldWidget.targetId != widget.targetId ||
         !identical(oldWidget.repository, widget.repository)) {
-      _generation++;
-      _users.clear();
-      _userIds.clear();
-      _cursors.clear();
-      _nextCursor = null;
-      _loading = false;
-      _hasMore = true;
-      _failed = false;
+      _resetPage();
       unawaited(_load());
     }
+  }
+
+  void _refreshPage() {
+    if (!_current) return;
+    setState(_resetPage);
+    unawaited(_load());
+  }
+
+  void _resetPage() {
+    _generation++;
+    _users.clear();
+    _userIds.clear();
+    _cursors.clear();
+    _nextCursor = null;
+    _loading = false;
+    _hasMore = true;
+    _failed = false;
   }
 
   void _sessionChanged() {
@@ -152,7 +176,7 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
       }
       for (final user in page.items) {
         final id = user.id.trim();
-        if (id.isNotEmpty && _userIds.add(id)) _users.add(user);
+        if (id.isEmpty || _userIds.add(id)) _users.add(user);
       }
       if (cursor != null) _cursors.add(cursor);
       final next = page.nextCursor?.trim();
@@ -300,8 +324,10 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _generation++;
     widget.sessions.removeListener(_sessionChanged);
+    _blockChanges?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -381,6 +407,12 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
           );
         }
         final user = _users[index];
+        if (user.id.isEmpty) {
+          return const ListTile(
+            leading: Icon(Icons.person_outline),
+            title: Text('Anonim'),
+          );
+        }
         return _LikeUserRow(user: user, onTap: () => _openUser(user));
       },
     );

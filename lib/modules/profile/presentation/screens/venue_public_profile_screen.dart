@@ -41,6 +41,8 @@ import 'profile_carousels.dart';
 import 'profile_count_row.dart';
 import 'profile_photo_gallery_tab.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../content_report/domain/content_report.dart';
+import '../../../user_block/presentation/user_block_action.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_route_args.dart';
@@ -276,7 +278,7 @@ class _MusicianPublicProfileViewState
                 weeklyEvents: weeklyEvents,
                 onRefresh: _refreshProfile,
               );
-              return NotificationTargetReady(
+              final ready = NotificationTargetReady(
                 contentIdentity: publicProfile,
                 ready:
                     venueProfileState.status == VenueProfileStatus.success &&
@@ -287,6 +289,10 @@ class _MusicianPublicProfileViewState
                   enabled: publicProfile.venueId == _publicVenueId,
                   child: content,
                 ),
+              );
+              return BlockAwarePublicProfile(
+                userId: publicProfile.ownerUserId,
+                child: ready,
               );
             },
           ),

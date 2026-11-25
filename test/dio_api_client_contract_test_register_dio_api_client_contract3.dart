@@ -1,12 +1,15 @@
 part of 'dio_api_client_contract_test.dart';
 
 void _registerDioApiClientContract3() {
-  group('listener-aware public source transport', () {
+  group('viewer-aware public source transport', () {
     const sourcePaths = [
       '/api/v1/profiles/MUSICIAN/artist/media',
       '/api/v1/public/media/owner/MUSICIAN_PROFILE/artist/kind/VIDEO',
       '/api/v1/public/media/owner/VENUE_PROFILE/venue/kind/IMAGE',
       '/api/v1/public/search/profiles',
+      '/api/v1/venues/get-all',
+      '/api/v1/venues/search',
+      '/api/v1/venues/get-by-id/venue',
       '/api/v1/public/musician-profiles/artist',
       '/api/v1/public/bands/band',
       '/api/v1/public/venue-profiles/venue',
@@ -14,7 +17,13 @@ void _registerDioApiClientContract3() {
       '/api/v1/public/studio-profiles/studio/rooms/room/availability',
       '/api/v1/public/studio-profiles/studio/equipment/item/availability',
     ];
-    for (final role in [null, 'ROLE_MUSICIAN', 'ROLE_VENUE', 'ROLE_LISTENER']) {
+    for (final role in [
+      null,
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+    ]) {
       test(
         '$role preserves source identity without authenticating discovery',
         () async {
@@ -48,7 +57,7 @@ void _registerDioApiClientContract3() {
             expect(await client.get<int>(path), 1);
             expect(
               adapter.requests.last.headers['Authorization'],
-              role == 'ROLE_LISTENER' ? 'Bearer $token' : isNull,
+              role == null ? isNull : 'Bearer $token',
               reason: path,
             );
           }

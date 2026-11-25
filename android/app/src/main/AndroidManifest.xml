@@ -11,6 +11,9 @@
         android:icon="@mipmap/ic_soundconnect"
         android:roundIcon="@mipmap/ic_soundconnect_round"
         android:usesCleartextTraffic="false">
+        <!-- Keep the portrait layout in Android 16 large-screen compatibility mode. -->
+        <property android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
         <meta-data android:name="com.soundconnect.push_avatar_host" android:value="${pushAvatarHost}" />
         <service android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService" tools:node="remove" />
@@ -55,6 +58,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:enableOnBackInvokedCallback="true"

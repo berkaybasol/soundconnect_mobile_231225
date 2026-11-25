@@ -71,6 +71,15 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           title: const ProfileBrandTitle(),
           leading: BackButton(),
           centerTitle: true,
+          actions: [
+            UserBlockProfileMenu(
+              reportKind: ContentReportKind.musicianProfile,
+              userId: profile.userId,
+              name: profile.username?.isNotEmpty == true
+                  ? '@${profile.username}'
+                  : profile.stageName ?? '',
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: onRefresh,

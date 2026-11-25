@@ -19,6 +19,8 @@ import '../../../dm/data/dm_auth_support.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/table_group.dart';
+import '../../data/table_group_report_repository.dart';
+import 'recent_table_report_screen.dart';
 import '../../domain/table_group_expiry_policy.dart';
 import 'table_group_detail_screen.dart';
 import 'table_group_route_args.dart';
@@ -136,6 +138,22 @@ class _TableGroupListViewState extends State<_TableGroupListView>
       _currentUserId = userId?.trim().isNotEmpty == true ? userId : null;
       _currentUserResolved = true;
     });
+  }
+
+  void _openRecentReports() {
+    final reports = serviceLocator<TableGroupReportRepository>();
+    final session = reports.sessions.session;
+    final actor = reports.capture(session);
+    if (actor == null || session.userId != _currentUserId) {
+      _showSessionRequired();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            RecentTableReportScreen(repository: reports, actor: actor),
+      ),
+    );
   }
 
   Future<void> _openDetail(TableGroup group) async {
@@ -569,8 +587,10 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  SizedBox(
-                                    height: 48,
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 48,
+                                    ),
                                     child: Row(
                                       children: [
                                         IconButton(
@@ -584,7 +604,34 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                             size: 28,
                                           ),
                                         ),
-                                        const Spacer(),
+                                        if (_currentUserId == null)
+                                          const Spacer()
+                                        else
+                                          Expanded(
+                                            child: Align(
+                                              alignment: Alignment.centerRight,
+                                              child: TextButton.icon(
+                                                style: TextButton.styleFrom(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                      ),
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.history,
+                                                  size: 18,
+                                                ),
+                                                label: const Text(
+                                                  'Yakın zamanda katıldığım bir masayı bildir',
+                                                  textAlign: TextAlign.start,
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                onPressed: _openRecentReports,
+                                              ),
+                                            ),
+                                          ),
                                         IconButton(
                                           key: const Key(
                                             'table_group_open_filters',

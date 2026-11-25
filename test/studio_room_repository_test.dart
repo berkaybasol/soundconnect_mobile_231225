@@ -1,10 +1,77 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_room_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/studio/presentation/customer_reservations_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/data/studio_room_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_room.dart';
 
 import 'support/recording_api_client.dart';
 
 void main() {
+  for (final exact in [false, true]) {
+    testWidgets(
+      'customer can read and cancel from ${exact ? 'their exact reservation' : 'their reservation list'} without public access',
+      (tester) async {
+        const base = '/api/v1/user/studio-reservations';
+        const id = 'reservation-1';
+        final row = _reservationJson()
+          ..['startsAt'] = DateTime.now()
+              .toUtc()
+              .add(const Duration(days: 2))
+              .toIso8601String()
+          ..['endsAt'] = DateTime.now()
+              .toUtc()
+              .add(const Duration(days: 2, hours: 1))
+              .toIso8601String()
+          ..['roomName'] = 'Prova odası';
+        final api = RecordingApiClient((request) {
+          if (request.path == '$base/$id/cancel') {
+            expect(request.body, {'expectedVersion': 1});
+            row['status'] = 'CANCELLED_BY_CUSTOMER';
+            return row;
+          }
+          if (exact) {
+            expect(request.path, '$base/$id');
+            return row;
+          }
+          expect(request.path, base);
+          return {
+            'content': [row],
+            'page': 0,
+            'size': 20,
+            'first': true,
+            'last': true,
+            'totalElements': 1,
+            'totalPages': 1,
+          };
+        });
+        serviceLocator.registerSingleton<StudioRoomRepository>(
+          StudioRoomRepositoryImpl(api),
+        );
+        addTearDown(() => serviceLocator.unregister<StudioRoomRepository>());
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CustomerReservationsScreen(reservationId: exact ? id : null),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Prova odası'), findsOneWidget);
+        await tester.tap(find.text('İptal et'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('İptal et'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('İptal ettin'), findsOneWidget);
+        expect(api.requests.length, 3);
+      },
+    );
+  }
+
   group('StudioRoomRepositoryImpl', () {
     test('decodes owner page and sends bounded pagination query', () async {
       final api = RecordingApiClient(

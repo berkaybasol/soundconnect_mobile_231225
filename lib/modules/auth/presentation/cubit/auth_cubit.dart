@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/error/app_error.dart';
+import '../../../../core/error/result.dart';
 import '../../domain/entities/user_status.dart';
 import '../../domain/entities/login_result.dart';
 import '../../domain/entities/verify_code_result.dart';
@@ -70,21 +71,25 @@ class AuthCubit extends Cubit<AuthState> {
     _sessionManager?.addListener(_handleSessionChanged);
   }
 
-  Future<void> login({required String username, required String password}) {
+  Future<void> login({required String username, required String password}) =>
+      authenticate(() => _loginUseCase(username: username, password: password));
+
+  Future<void> authenticate(
+    Future<Result<LoginResult>> Function() credentials,
+  ) {
     final inFlight = _loginInFlight;
     if (inFlight != null) return inFlight;
 
-    final operation = _performLogin(username: username, password: password);
+    final operation = _performLogin(credentials);
     _loginInFlight = operation;
     return operation.whenComplete(() {
       if (identical(_loginInFlight, operation)) _loginInFlight = null;
     });
   }
 
-  Future<void> _performLogin({
-    required String username,
-    required String password,
-  }) async {
+  Future<void> _performLogin(
+    Future<Result<LoginResult>> Function() credentials,
+  ) async {
     final requestRevision = _credentialRequestRevision;
     final credentialRevision = _sessionManager?.credentialRevision;
     final initialSession = _sessionManager?.session;
@@ -95,11 +100,24 @@ class AuthCubit extends Cubit<AuthState> {
         error: null,
       ),
     );
-    final result = await _loginUseCase(username: username, password: password);
+    final result = await credentials();
     if (isClosed ||
         requestRevision != _credentialRequestRevision ||
         credentialRevision != _sessionManager?.credentialRevision ||
         !identical(initialSession, _sessionManager?.session)) {
+      return;
+    }
+    if (result.isSuccess && result.data == null) {
+      emit(const AuthState.idle());
+      return;
+    }
+    if (result.error?.code == AppError.accountSuspended &&
+        credentialRevision != null) {
+      await _sessionManager!.suspendAccount(
+        revision: credentialRevision,
+        requestToken: initialSession?.token,
+      );
+      if (!isClosed) emit(const AuthState.idle());
       return;
     }
     if (result.isSuccess && result.data != null) {
@@ -171,7 +189,11 @@ class AuthCubit extends Cubit<AuthState> {
     final didEndSession = _wasSessionAuthenticated && !isAuthenticated;
     _wasSessionAuthenticated = isAuthenticated;
 
-    if (didEndSession) _emitLoggedOut();
+    // Google can receive a verified rejection while still on the guest login
+    // screen. Release the pending login controls when that attempt is retired.
+    if (didEndSession || sessionManager.session.isSuspendedNotice) {
+      _emitLoggedOut();
+    }
   }
 
   bool get _isLoggedOut =>

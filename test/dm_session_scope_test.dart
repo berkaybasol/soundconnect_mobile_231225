@@ -89,7 +89,7 @@ void main() {
           previousToken: 'token-a',
           current: _session('b'),
         ),
-        AppRoutes.home,
+        AppRoutes.musicianProfile,
       );
     },
   );
@@ -104,7 +104,7 @@ void main() {
           current: _session('b'),
           accountResetPending: true,
         ),
-        AppRoutes.home,
+        AppRoutes.musicianProfile,
       );
       expect(
         resolveSessionChangeNavigationRoute(

@@ -15,8 +15,8 @@ void main() {
       expect(StompDestinations.dm('user-1'), '/topic/dm.user-1');
       expect(StompDestinations.dmBadge('user-1'), '/topic/dm.user-1.badge');
       expect(
-        StompDestinations.tableGroup('group-1'),
-        '/topic/table-group.group-1',
+        StompDestinations.tableGroup('group-1', 'viewer'),
+        '/topic/table-group.group-1.viewer',
       );
     });
   });

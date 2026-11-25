@@ -457,6 +457,83 @@ void main() {
       },
     );
 
+    for (final scenario in [
+      'success',
+      'old token expiry',
+      'failed exchange',
+      'replacement login',
+      'logout',
+      'wrong subject',
+    ]) {
+      test('in-flight token rotation handles $scenario', () async {
+        String bearer(String subject, int version) => _token({
+          'sub': subject,
+          'sv': version,
+          'exp': _seconds(now, 600),
+          'roles': ['ROLE_LISTENER'],
+        });
+        final old = bearer('first', 0);
+        final tokens = _MemoryTokenStore(old);
+        final metadata = _MemorySessionStore(
+          const AuthSessionMetadata(username: 'name', accountStatus: 'ACTIVE'),
+        );
+        late _ManualTimer expiry;
+        final manager = AuthSessionManager(
+          tokenStore: tokens,
+          sessionStore: metadata,
+          clock: () => now,
+          expiryTimerFactory: (_, callback) => expiry = _ManualTimer(callback),
+        );
+        addTearDown(manager.dispose);
+        final original = await manager.restore();
+        final response = Completer<String>();
+        final rotation = manager.rotateAccessToken(
+          expected: original,
+          revision: manager.credentialRevision,
+          requestToken: () => response.future,
+        );
+        if (scenario == 'old token expiry') {
+          expiry.fire();
+        } else {
+          await manager.rejectUnauthorizedToken(old);
+        }
+        expect(manager.session, same(original));
+        final next = bearer('first', 1);
+        switch (scenario) {
+          case 'success' || 'old token expiry':
+            response.complete(next);
+            expect(await rotation, isTrue);
+            await manager.rejectUnauthorizedToken(old);
+            expect(manager.session.token, next);
+            expect(tokens.value, next);
+            expect((await manager.restore()).username, 'name');
+          case 'failed exchange':
+            response.completeError(StateError('request failed'));
+            await expectLater(rotation, throwsStateError);
+            expect(manager.session.isAuthenticated, isFalse);
+          case 'replacement login':
+            await manager.startSession(
+              token: old,
+              username: 'later-login',
+              accountStatus: 'ACTIVE',
+            );
+            response.complete(next);
+            expect(await rotation, isFalse);
+            expect(manager.session.username, 'later-login');
+            expect(tokens.value, old);
+          case 'logout':
+            await manager.logout();
+            response.complete(next);
+            expect(await rotation, isFalse);
+            expect(tokens.value, isNull);
+          case 'wrong subject':
+            response.complete(bearer('other', 1));
+            await expectLater(rotation, throwsFormatException);
+            expect(tokens.value, isNull);
+        }
+      });
+    }
+
     test('invalid start clears prior credentials before throwing', () async {
       final _MemoryTokenStore tokenStore = _MemoryTokenStore('old-token');
       final _MemorySessionStore sessionStore = _MemorySessionStore(

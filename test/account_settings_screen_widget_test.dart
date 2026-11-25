@@ -12,12 +12,18 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_coordinator.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_device_api.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_settings_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/account_deletion_repository_impl.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/account_password_repository.dart';
+import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/account_deletion_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/account_settings_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/listener_account_deletion_dialog.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_muted_authors.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
@@ -73,6 +79,192 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'retained delete action cannot open a dialog for a replacement account',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final openDeletion = tester
+          .widget<ListTile>(
+            find.byKey(const Key('account-settings-delete-account-reminder')),
+          )
+          .onTap!;
+      await tester.runAsync(
+        () => sessionManager.startSession(
+          token: _jwt(
+            subject: 'different-listener',
+            roles: const ['ROLE_LISTENER'],
+          ),
+          username: 'different-listener',
+          accountStatus: 'ACTIVE',
+        ),
+      );
+      openDeletion();
+      await tester.pumpAndSettle();
+      expect(find.byType(AccountDeletionDialog), findsNothing);
+      expect(sessionManager.session.userId, 'different-listener');
+    },
+  );
+
+  for (final scenario in [
+    'original session',
+    'different account',
+    'relogin with the same token',
+  ]) {
+    testWidgets('committed deletion after both routes were disposed: $scenario', (
+      tester,
+    ) async {
+      final owner = sessionManager.session;
+      final api = _PendingDeletionApi();
+      serviceLocator.registerSingleton<AccountDeletionRepository>(
+        AccountDeletionRepositoryImpl(api, sessionManager),
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final delete = find.byKey(
+        const Key('account-settings-delete-account-reminder'),
+      );
+      await tester.ensureVisible(delete);
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      final next = find.byKey(const Key('account-delete-next'));
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('account-delete-password')),
+        'password',
+      );
+      final acknowledge = find.byKey(const Key('account-delete-acknowledge'));
+      await tester.ensureVisible(acknowledge);
+      await tester.tap(acknowledge);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('account-delete-confirm')));
+      await tester.pump();
+      expect(api.calls, 1);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.pushAndRemoveUntil<void>(
+          MaterialPageRoute(
+            builder: (_) => const Scaffold(body: Text('Replacement route')),
+          ),
+          (_) => false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(AccountSettingsScreen, skipOffstage: false),
+        findsNothing,
+      );
+      expect(
+        find.byType(AccountDeletionDialog, skipOffstage: false),
+        findsNothing,
+      );
+      if (scenario == 'original session') {
+        // A metadata update replaces the session object without replacing its credentials.
+        await tester.runAsync(
+          () => sessionManager.updateUsername('renamed-listener'),
+        );
+      } else {
+        await tester.runAsync(
+          () => sessionManager.startSession(
+            token: scenario == 'different account'
+                ? _jwt(
+                    subject: 'second-listener',
+                    roles: const ['ROLE_LISTENER'],
+                  )
+                : owner.token!,
+            username: 'new-login',
+            accountStatus: 'ACTIVE',
+          ),
+        );
+      }
+      final active = sessionManager.session;
+      api.response.complete(true);
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      if (scenario == 'original session') {
+        expect(sessionManager.session.isAuthenticated, isFalse);
+        expect(tokenStore.token, isNull);
+        expect(sessionStore.metadata, isNull);
+      } else {
+        expect(sessionManager.session, same(active));
+        expect(tokenStore.token, active.token);
+        expect(sessionStore.metadata?.username, 'new-login');
+      }
+    });
+  }
+
+  Future<void> openPassword(WidgetTester tester, _PasswordApi api) async {
+    serviceLocator.registerSingleton<AccountPasswordRepository>(
+      AccountPasswordRepository(api, sessionManager),
+    );
+    await tester.pumpWidget(app());
+    final row = find.byKey(const Key('account-settings-password'));
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Google account sees its sign-in method in settings', (
+    tester,
+  ) async {
+    final api = _PasswordApi('GOOGLE');
+    await openPassword(tester, api);
+    expect(find.text('Bu hesaba Google ile giriş yapıyorsun.'), findsOneWidget);
+    expect(find.text('Şifreni değiştir'), findsNothing);
+    expect(api.writes, 0);
+  });
+
+  testWidgets(
+    'password sheet validates, preserves wrong-password session and replaces token on success',
+    (tester) async {
+      final api = _PasswordApi('LOCAL');
+      final original = sessionManager.session;
+      await openPassword(tester, api);
+      final fields = find.byType(TextFormField);
+      expect(fields, findsNWidgets(3));
+      for (final input in tester.widgetList<TextField>(
+        find.descendant(of: fields, matching: find.byType(TextField)),
+      )) {
+        expect(input.obscureText, isTrue);
+      }
+      await tester.enterText(fields.at(0), 'incorrect');
+      await tester.enterText(fields.at(1), 'updated-pass');
+      await tester.enterText(fields.at(2), 'mismatch');
+      final submit = find.text('Şifreyi değiştir');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Şifreler eşleşmeli.'), findsOneWidget);
+      expect(api.writes, 0);
+      await tester.enterText(fields.at(2), 'updated-pass');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Mevcut şifren doğru değil.'), findsOneWidget);
+      expect(sessionManager.session, same(original));
+      await tester.enterText(fields.at(0), 'current-pass');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      // The session manager's credential-write queue was created in setUp,
+      // outside the widget binding's virtual clock.
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(find.text('Şifren değiştirildi.'), findsOneWidget);
+      expect(find.text('Hesap Ayarları'), findsOneWidget);
+      expect(find.text('Şifreni değiştir'), findsNothing);
+      expect(sessionManager.session.token, api.renewed);
+      expect(sessionManager.session.userId, original.userId);
+      expect(tokenStore.token, api.renewed);
+      expect(api.writes, 2);
+      await tester.runAsync(sessionManager.logout);
+    },
+  );
 
   testWidgets('active settings route opens push permission controls', (
     tester,
@@ -153,7 +345,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('account-settings-password-reminder')),
+        find.byKey(const Key('account-settings-password')),
         findsOneWidget,
       );
       expect(
@@ -354,11 +546,13 @@ void main() {
       find.byKey(const Key('settings-account-settings-button')),
       findsNothing,
     );
+    expect(find.byKey(const Key('account-settings-password')), findsOneWidget);
     expect(
-      find.byKey(const Key('account-settings-password-reminder')),
-      findsOneWidget,
+      tester
+          .widget<ListTile>(find.byKey(const Key('account-settings-password')))
+          .onTap,
+      isNotNull,
     );
-    expect(find.text('Şifre değiştirme özelliği yakında'), findsOneWidget);
     expect(find.byKey(const Key('account-settings-theme-tile')), findsNothing);
     expect(
       find.byKey(const Key('account-settings-support-email')),
@@ -727,6 +921,61 @@ void main() {
   });
 }
 
+class _PasswordApi extends Fake implements ApiClient {
+  _PasswordApi(this.provider);
+  final String provider;
+  final String renewed = _jwt(
+    subject: 'listener-user',
+    roles: ['ROLE_LISTENER'],
+    version: 1,
+  );
+  int writes = 0;
+
+  @override
+  Future<T> request<T>(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    T Function(Object?)? decoder,
+    ApiRequestContext? requestContext,
+  }) async {
+    expect(path, '/api/v1/users/me/password');
+    expect(requestContext?.expectedSessionKey, 'listener-user');
+    expect(requestContext?.expectedCredentialRevision, isNotNull);
+    expect(requestContext?.expectedToken, isNotEmpty);
+    if (method == ApiHttpMethod.get) return decoder!({'provider': provider});
+    expect(method, ApiHttpMethod.post);
+    writes++;
+    final request = body as Map;
+    expect(request['newPassword'], 'updated-pass');
+    if (request['currentPassword'] != 'current-pass') {
+      throw ApiException(
+        const AppError(code: '1123', message: 'wrong password'),
+      );
+    }
+    return decoder!({'token': renewed});
+  }
+}
+
+class _PendingDeletionApi extends Fake implements ApiClient {
+  int calls = 0;
+  final response = Completer<bool>();
+
+  @override
+  Future<T> request<T>(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    T Function(Object?)? decoder,
+    ApiRequestContext? requestContext,
+  }) async {
+    calls++;
+    return decoder!(await response.future);
+  }
+}
+
 class _MutedAuthorsRepositoryFake
     implements MusicianFeedMutedAuthorsRepository {
   int reads = 0;
@@ -904,7 +1153,11 @@ Future<void> _openUsernameEditor(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-String _jwt({required String subject, required List<String> roles}) {
+String _jwt({
+  required String subject,
+  required List<String> roles,
+  int version = 0,
+}) {
   String encode(Object value) =>
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
   final expiresAt =
@@ -915,6 +1168,6 @@ String _jwt({required String subject, required List<String> roles}) {
       1000;
 
   return '${encode(<String, String>{'alg': 'HS256'})}.'
-      '${encode(<String, Object>{'sub': subject, 'exp': expiresAt, 'roles': roles})}.'
+      '${encode(<String, Object>{'sub': subject, 'exp': expiresAt, 'roles': roles, 'sv': version})}.'
       'signature';
 }

@@ -2,6 +2,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/auth/auth_session.dart';
@@ -9,6 +10,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/listener_profile_publication_access.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/result.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../core/realtime/realtime_client_error.dart';
@@ -28,6 +30,7 @@ import '../../../notification/data/notification_realtime_client.dart';
 import '../../../notification/domain/entities/app_notification.dart';
 import '../../../notification/domain/entities/table_notification_target.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../data/table_group_chat_realtime_client.dart';
 import '../../data/table_group_report_repository.dart';
 import '../../domain/entities/table_group.dart';
@@ -50,6 +53,7 @@ import '../widgets/table_group_report_sheet.dart';
 import 'table_group_list_screen.dart';
 
 part 'table_group_detail_screen_bootstrap.dart';
+part 'table_group_detail_screen_blocks.dart';
 part 'table_group_detail_screen_join.dart';
 part 'table_group_detail_screen_detail_sticky_action.dart';
 part 'table_group_detail_screen_display_name_for_sender.dart';
@@ -161,6 +165,13 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   final ScrollController _chatScrollController = ScrollController();
 
   StreamSubscription<TableGroupMessage>? _messageSubscription;
+  StreamSubscription<TableGroupRoomChange>? _roomSubscription;
+  StreamSubscription<UserBlockChange>? _blockSubscription;
+  int _visibilityGeneration = 0;
+  int _detailRequest = 0;
+  final Set<String> _handledArrivals = {};
+  final Set<(String, String)> _approvalRefreshes = {};
+  bool _presentingArrival = false;
   StreamSubscription<AppNotification>? _moderationSubscription;
   StreamSubscription<void>? _personalConnectionSubscription;
   StreamSubscription<void>? _connectionSubscription;
@@ -169,7 +180,6 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   Future<void>? _bootstrapInFlight;
   Future<void>? _resumeInFlight;
   Future<void>? _reconciliationInFlight;
-  Completer<void>? _chatLoadCompleter;
   Timer? _expiryTimer;
   Timer? _gameExpiryRetryTimer;
   String? _gameExpiryRetryToken;
@@ -180,6 +190,8 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   bool _connectingRealtime = false;
   bool _sending = false;
   bool _joinInFlight = false;
+  Completer<void>? _joinSettled;
+  bool _joinDialogOpen = false;
   bool _sessionActionInFlight = false;
   bool _gameLauncherOpen = false;
   bool _profileDraftOpening = false;
@@ -201,15 +213,25 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   Widget _tableOverlayContent(BuildContext overlayContext, Widget content) {
     final route = ModalRoute.of(overlayContext)!;
     if (_tableOverlays.add(route)) {
-      route.popped.then((_) => _tableOverlays.remove(route));
+      route.popped.then((_) {
+        _tableOverlays.remove(route);
+        if (mounted && _sameTableSession && _hasActiveChatAccess) {
+          _scheduleArrivalWarning();
+          if (_visibilityGeneration > 0 && !_chatLoaded && _shouldRunChat) {
+            unawaited(_loadMessages(reset: true));
+          }
+        }
+      });
       // The removal can arrive after a push but before the first route build.
-      if (!_isSessionActive) {
+      if (!_isSessionActive || !_sameTableSession) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (route.isActive) route.navigator?.removeRoute(route);
         });
       }
     }
-    return _isSessionActive ? content : const SizedBox.shrink();
+    return _isSessionActive && _sameTableSession
+        ? content
+        : const SizedBox.shrink();
   }
 
   Widget _tableMenuLabel(String label) =>
@@ -252,16 +274,26 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     );
     _gameStateSubscription = _gameCubit.stream.listen(_onGameState);
     _messageSubscription = _realtimeClient.messageStream.listen(_onRealtimeMsg);
+    _roomSubscription = _realtimeClient.changes.listen(_onRoomChange);
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockSubscription = serviceLocator<UserBlockRepository>().changes.listen(
+        (change) {
+          if (change.actorId == _currentUserId && _sameTableSession) {
+            _onRoomChange(TableGroupRoomChange.visibility);
+          }
+        },
+      );
+    }
     if (serviceLocator.isRegistered<NotificationRealtimeClient>()) {
       final personal = serviceLocator<NotificationRealtimeClient>();
       _moderationSubscription = personal.notificationStream.listen(
         _onTableNotification,
       );
       _personalConnectionSubscription = personal.connectionStream.listen((_) {
-        if (mounted &&
-            _shouldRunChat &&
-            _shareSession != null &&
-            _sameTableSession) {
+        if (!mounted || _shareSession == null || !_sameTableSession) return;
+        if (_myStatus == TableGroupParticipantStatus.pending) {
+          unawaited(_bootstrap());
+        } else if (_shouldRunChat) {
           unawaited(_loadDetail(replaceScreenOnFailure: false));
         }
       });
@@ -285,6 +317,8 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     _chatController.dispose();
     _chatScrollController.dispose();
     _messageSubscription?.cancel();
+    _roomSubscription?.cancel();
+    _blockSubscription?.cancel();
     _moderationSubscription?.cancel();
     _personalConnectionSubscription?.cancel();
     _connectionSubscription?.cancel();

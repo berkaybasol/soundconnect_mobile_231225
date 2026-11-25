@@ -164,6 +164,7 @@ void _registerReportEntryCases() {
       await tester.tap(find.text('Bildirimi gönder'));
       await tester.pumpAndSettle();
       expect(find.text('Bildirimin alındı'), findsOneWidget);
+      expect(find.text('Engelle'), findsNothing);
       expect(api.lastRequest.path, '/api/v1/table-groups/g-1/reports');
       final body = api.lastRequest.body! as Map;
       expect(body['kind'], 'LISTING');
@@ -181,6 +182,12 @@ void _registerReportEntryCases() {
       final now = DateTime.utc(2026, 11, 24, 14);
       final sessions = AudienceTestSessions(audienceSession(user: 'guest'));
       var tries = 0;
+      final blocks = RecordingApiClient(
+        (_) => {'blockedByMe': true, 'interactionBlocked': true},
+      );
+      serviceLocator.registerSingleton<UserBlockRepository>(
+        UserBlockRepository(blocks, sessions),
+      );
       final api = RecordingApiClient((_) {
         if (++tries == 1) throw StateError('reply lost');
         return {'id': 'receipt', 'reportedAt': now.toIso8601String()};
@@ -276,8 +283,10 @@ void _registerReportEntryCases() {
         api.lastRequest.body,
         containsPair('description', 'Ödeme istedi.'),
       );
+      expect(find.text('Engelle'), findsOneWidget);
       await tester.tap(find.text('Tamam'));
       await tester.pumpAndSettle();
+      expect(blocks.requests, isEmpty);
       final channel = transport.latest!.subscriptions.keys.singleWhere(
         (k) => k.contains('g-1'),
       );

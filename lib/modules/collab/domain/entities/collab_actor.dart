@@ -12,13 +12,14 @@ class CollabActor {
     required this.reviewCount,
     required this.completedJobCount,
     this.avatarUrl,
+    this.profileAvailable = true,
   });
 
   final String actorId;
   final CollabProfileKind profileType;
   final String sourceProfileId;
 
-  /// Empty only for review snapshots that intentionally omit contact data.
+  /// Empty when the contact was deleted or omitted from a historical review.
   final String contactUserId;
   final String contactUsername;
   final String displayName;
@@ -26,6 +27,10 @@ class CollabActor {
   final double rating;
   final int reviewCount;
   final int completedJobCount;
+  final bool profileAvailable;
+
+  bool get canOpenProfile =>
+      profileAvailable && sourceProfileId.trim().isNotEmpty;
 
   String get initials {
     final parts = displayName

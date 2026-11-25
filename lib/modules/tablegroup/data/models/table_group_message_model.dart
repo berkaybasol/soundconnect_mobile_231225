@@ -99,7 +99,10 @@ class TableGroupMessageModel extends TableGroupMessage {
     return TableGroupMessageModel(
       messageId: messageId,
       tableGroupId: tableGroupId,
-      senderId: requiredText('senderId'),
+      // Shared game cards remain playable when the author's identity is hidden.
+      senderId: messageType == 'GAME' && json['senderId'] == null
+          ? null
+          : requiredText('senderId'),
       clientMessageId: clientMessageId,
       content: _requiredContent(json),
       messageType: messageType,

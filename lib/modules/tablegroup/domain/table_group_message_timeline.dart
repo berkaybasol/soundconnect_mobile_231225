@@ -39,8 +39,14 @@ List<TableGroupMessage> mergeTableGroupMessagesChronologically({
 
 String? _clientMessageKey(TableGroupMessage message) {
   final clientMessageId = message.clientMessageId?.trim();
-  if (clientMessageId == null || clientMessageId.isEmpty) return null;
-  return '${message.senderId.trim()}::$clientMessageId';
+  final sender = message.senderId?.trim();
+  if (clientMessageId == null ||
+      clientMessageId.isEmpty ||
+      sender == null ||
+      sender.isEmpty) {
+    return null;
+  }
+  return '$sender::$clientMessageId';
 }
 
 /// Returns whether [candidate] is a newer revision of the same structured game

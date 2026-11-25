@@ -3,7 +3,7 @@ part of 'table_group_detail_screen.dart';
 extension _TableGroupDetailScreenStateJoinMethods
     on _TableGroupDetailScreenState {
   Future<void> _join() async {
-    if (_joinInFlight || !_isSessionActive) return;
+    if (_joinDialogOpen || !_isSessionActive) return;
     if (!_canCreateOrJoin) {
       _showSnack(
         'Masa oluşturma ve katılma işlemleri kişisel hesaplarla kullanılabilir.',
@@ -11,33 +11,64 @@ extension _TableGroupDetailScreenStateJoinMethods
       );
       return;
     }
-    final submission = await showDialog<_JoinDialogSubmission>(
-      context: context,
-      barrierColor: AppColors.pureBlack.withValues(alpha: 0.76),
-      builder: (context) =>
-          _tableOverlayContent(context, const _PremiumJoinDialog()),
-    );
-    if (!mounted || submission == null || !_isSessionActive) return;
-    final note = submission.note.trim();
-    _updateView(() => _joinInFlight = true);
+    _joinDialogOpen = true;
+    final settled = _joinSettled = Completer<void>();
     try {
-      final result = await _repository.joinTableGroup(
-        tableGroupId: widget.args.tableGroupId,
-        note: note,
-      );
-      if (!mounted) return;
-      _showSnack(
-        result.isSuccess
-            ? 'Katılma isteği gönderildi'
-            : (result.error?.message ?? 'Islem basarisiz'),
-        tone: result.isSuccess
-            ? AppSnackBarTone.success
-            : AppSnackBarTone.error,
-      );
-      if (result.isSuccess) {
-        await _loadDetail(replaceScreenOnFailure: false);
+      var note = '';
+      while (_sameTableSession && _isSessionActive) {
+        if (!mounted) return;
+        final blocked = _group!.participants
+            .where(
+              (p) =>
+                  p.blockedByMe &&
+                  p.status == TableGroupParticipantStatus.accepted,
+            )
+            .toList();
+        final submission = await showDialog<_JoinDialogSubmission>(
+          context: context,
+          barrierColor: AppColors.pureBlack.withValues(alpha: 0.76),
+          builder: (context) => _tableOverlayContent(
+            context,
+            _PremiumJoinDialog(blocked: blocked, initialNote: note),
+          ),
+        );
+        if (!mounted ||
+            submission == null ||
+            !_sameTableSession ||
+            !_isSessionActive) {
+          return;
+        }
+        note = submission.note.trim();
+        _updateView(() => _joinInFlight = true);
+        final result = await _repository.joinTableGroup(
+          tableGroupId: widget.args.tableGroupId,
+          note: note,
+          acknowledgedBlockedMemberIds: [
+            for (final person in blocked) person.userId,
+          ],
+        );
+        if (!mounted || !_sameTableSession) return;
+        if (result.error?.code == '9139') {
+          if (!await _loadDetail(replaceScreenOnFailure: false)) return;
+          if (!mounted) return;
+          _updateView(() => _joinInFlight = false);
+          continue;
+        }
+        _showSnack(
+          result.isSuccess
+              ? 'Katılma isteği gönderildi'
+              : (result.error?.message ?? 'İşlem başarısız'),
+          tone: result.isSuccess
+              ? AppSnackBarTone.success
+              : AppSnackBarTone.error,
+        );
+        if (result.isSuccess) await _bootstrap();
+        return;
       }
     } finally {
+      _joinSettled = null;
+      settled.complete();
+      _joinDialogOpen = false;
       if (mounted) _updateView(() => _joinInFlight = false);
     }
   }
@@ -208,13 +239,15 @@ extension _TableGroupDetailScreenStateJoinMethods
     return result.isSuccess;
   }
 
-  Future<void> _leave() async {
+  Future<void> _leave({bool alreadyConfirmed = false}) async {
     if (_sessionActionInFlight || !_hasActiveChatAccess) return;
-    final confirmed = await _confirmSessionAction(
-      title: 'Masadan ayrıl',
-      message: 'Masadan ayrıldığında bu sohbete erişimin sona erecek.',
-      confirmLabel: 'Ayrıl',
-    );
+    final confirmed =
+        alreadyConfirmed ||
+        await _confirmSessionAction(
+          title: 'Masadan ayrıl',
+          message: 'Masadan ayrıldığında bu sohbete erişimin sona erecek.',
+          confirmLabel: 'Ayrıl',
+        );
     if (!confirmed || !mounted) return;
     _updateView(() => _sessionActionInFlight = true);
     try {
@@ -345,8 +378,10 @@ extension _TableGroupDetailScreenStateJoinMethods
         (kind != TableGroupReportKind.listing && !_isAccepted)) {
       return;
     }
+    final senderId = message?.senderId;
     if (kind == TableGroupReportKind.message &&
         (message == null ||
+            senderId == null ||
             message.messageType != 'TEXT' ||
             message.senderId == _currentUserId ||
             message.tableGroupId != group.id ||
@@ -375,6 +410,20 @@ extension _TableGroupDetailScreenStateJoinMethods
       tableId: group.id,
       kind: kind,
       messageId: message?.messageId,
+      senderUsername: message == null
+          ? null
+          : _participantByUserId(message.senderId)?.username,
+      blockSender:
+          senderId != null && serviceLocator.isRegistered<UserBlockRepository>()
+          ? () async {
+              final result = await serviceLocator<UserBlockRepository>().block(
+                senderId,
+              );
+              return result.isSuccess
+                  ? const Result<void>.success(null)
+                  : Result<void>.failure(result.error!);
+            }
+          : null,
       evidenceLabel: message != null
           ? '${_displayNameForSender(_participantByUserId(message.senderId), message.senderId)} · ${_timeOf(message.sentAt)}'
           : kind == TableGroupReportKind.incident

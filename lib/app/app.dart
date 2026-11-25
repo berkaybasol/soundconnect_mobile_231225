@@ -82,6 +82,7 @@ String? resolveSessionChangeNavigationRoute({
   String? previousToken,
   AuthSession? previousSession,
   bool accountResetPending = false,
+  bool isRotatingCurrentLogin = false,
 }) {
   if (current.isSuspendedNotice) return AppRoutes.accountSuspended;
   if (previousSession?.isSuspendedNotice == true) return AppRoutes.login;
@@ -95,7 +96,9 @@ String? resolveSessionChangeNavigationRoute({
   if (wasAuthenticated &&
       current.isAuthenticated &&
       ((previousUserId != null && previousUserId != current.userId) ||
-          (previousToken != null && previousToken != current.token))) {
+          (previousToken != null &&
+              previousToken != current.token &&
+              !isRotatingCurrentLogin))) {
     return AppRouteGuard.landingRouteFor(current);
   }
   if (current.isAuthenticated &&
@@ -494,6 +497,7 @@ class _SoundConnectAppState extends State<SoundConnectApp>
       previousToken: _previousToken,
       previousSession: _previousSession,
       accountResetPending: _sessionRouteResetPending,
+      isRotatingCurrentLogin: _sessionManager.isRotatingCurrentLogin,
     );
     _wasAuthenticated = isAuthenticated;
     _previousUserId = session.userId;

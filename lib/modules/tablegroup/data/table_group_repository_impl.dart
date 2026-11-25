@@ -126,11 +126,15 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   }) async {
     try {
       await _apiClient.post<Object?>(
         TableGroupEndpoints.join(tableGroupId),
-        body: note?.trim().isNotEmpty == true ? {'note': note!.trim()} : {},
+        body: {
+          if (note?.trim().isNotEmpty == true) 'note': note!.trim(),
+          'acknowledgedBlockedMemberIds': acknowledgedBlockedMemberIds,
+        },
         decoder: (_) => null,
       );
       return const Result.success(null);

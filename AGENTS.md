@@ -11,6 +11,8 @@ belirt; eski durumdan devam yetkisi veya kabul uydurma.
 
 ## Kod kalitesi ve mevcut altyapı
 
+25 Kasım 2026 çalışma kuralı. İş yeni ekran içeriyorsa ürün koduna başlamadan önce her yeni ekranı görsel olarak sun ve kullanıcının tasarım onayını bekle. Kodlama bittiğinde yerelde kısa bir temel kontrol yap. APK'yı iş ve yerel kontroller bitince bir kez paketle. Staging yayınından sonra yazılan otomatik testleri çalıştır ve staging'e bağlı emülatörde akışı elle doğrula. Kullanıcıya kısa test adımlarını ve beklenen sonucu ver. İş kullanıcının açık onayıyla kapanır. [Ortak karar](../hafiza/kararlar.md#k-30--yeni-ekran-onayı-staging-testleri-ve-kullanıcıyla-kapanış)
+
 3 Ekim 2026 açık kullanıcı kararı: üretime hazır (prod-ready) seviyede kod
 kalitesi hedefle. Her ihtiyaçta önce mevcut altyapıyı tara; ihtiyacı karşılayan
 yapı varsa yeniden yazma, kullan ve gerektiğinde geliştir. Uygun yapı yoksa veya

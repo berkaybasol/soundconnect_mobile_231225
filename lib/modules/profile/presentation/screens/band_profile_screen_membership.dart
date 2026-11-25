@@ -20,12 +20,16 @@ extension _BandProfileMembershipActions on _BandProfileViewState {
     final ownMemberships = profile.members
         .where((member) => member.userId.trim() == userId)
         .toList(growable: false);
-    // Founders must not lose ownership through a member-only action, even if a
-    // malformed response includes another membership for the same user.
-    return ownMemberships.length == 1 &&
-        !ownMemberships.any((member) => member.isFounder) &&
-        ownMemberships.any(
-          (member) => member.status.trim().toUpperCase() == 'ACTIVE',
+    if (ownMemberships.length != 1) return false;
+    final own = ownMemberships.single;
+    if (own.status.trim().toUpperCase() != 'ACTIVE') return false;
+    return !own.isFounder ||
+        profile.members.any(
+          (member) =>
+              member.userId.trim().isNotEmpty &&
+              member.userId.trim() != userId &&
+              member.isFounder &&
+              member.status.trim().toUpperCase() == 'ACTIVE',
         );
   }
 

@@ -3,7 +3,7 @@ import 'table_group_game.dart';
 class TableGroupMessage {
   final String messageId;
   final String tableGroupId;
-  final String senderId;
+  final String? senderId;
   final String? clientMessageId;
   final String content;
   final String messageType;

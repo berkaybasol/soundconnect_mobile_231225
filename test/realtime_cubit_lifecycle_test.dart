@@ -201,7 +201,11 @@ class _DelayedNotificationTransport implements RealtimeTransport {
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
-  }) => subscriptions.add(destination);
+    void Function()? onReceipt,
+  }) {
+    subscriptions.add(destination);
+    onReceipt?.call();
+  }
 
   @override
   void send({required String destination, required String body}) {}

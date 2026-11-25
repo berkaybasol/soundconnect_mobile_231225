@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/error/result.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../data/table_group_report_repository.dart';
 import '../../domain/table_group_report.dart';
@@ -16,6 +17,8 @@ Future<void> showTableGroupReportSheet(
   required String evidenceText,
   required String evidenceContext,
   String? messageId,
+  String? senderUsername,
+  Future<Result<void>> Function()? blockSender,
   Widget Function(BuildContext, Widget)? wrapContent,
 }) {
   return showModalBottomSheet<void>(
@@ -35,6 +38,8 @@ Future<void> showTableGroupReportSheet(
         evidenceText: evidenceText,
         evidenceContext: evidenceContext,
         messageId: messageId,
+        senderUsername: senderUsername,
+        blockSender: blockSender,
       );
       return wrapContent?.call(context, content) ?? content;
     },
@@ -51,6 +56,8 @@ class _ReportSheet extends StatefulWidget {
     required this.evidenceText,
     required this.evidenceContext,
     this.messageId,
+    this.senderUsername,
+    this.blockSender,
   });
   final TableGroupReportRepository repository;
   final ApiRequestContext actor;
@@ -60,6 +67,8 @@ class _ReportSheet extends StatefulWidget {
   final String evidenceText;
   final String evidenceContext;
   final String? messageId;
+  final String? senderUsername;
+  final Future<Result<void>> Function()? blockSender;
 
   @override
   State<_ReportSheet> createState() => _ReportSheetState();
@@ -125,6 +134,30 @@ class _ReportSheetState extends State<_ReportSheet> {
           _ => error.message,
         };
       }
+    });
+  }
+
+  Future<void> _blockSender() async {
+    final block = widget.blockSender;
+    if (_sending ||
+        !_received ||
+        block == null ||
+        !widget.repository.isCurrent(widget.actor)) {
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    final result = await block();
+    if (!mounted) return;
+    if (result.isSuccess && widget.repository.isCurrent(widget.actor)) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      _sending = false;
+      _error = result.error?.message;
     });
   }
 
@@ -194,11 +227,31 @@ class _ReportSheetState extends State<_ReportSheet> {
                       TableGroupReportKind.incident =>
                         'Yönetici anlattığın olayı inceleyecek.',
                     }, textAlign: TextAlign.center),
+                    if (widget.kind == TableGroupReportKind.message &&
+                        widget.blockSender != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.senderUsername == null
+                            ? 'Mesajı yazan kişiyi engellemek ister misin?'
+                            : '@${widget.senderUsername} kullanıcısını engellemek ister misin?',
+                        textAlign: TextAlign.center,
+                      ),
+                      TextButton(
+                        onPressed: _sending ? null : _blockSender,
+                        child: const Text('Engelle'),
+                      ),
+                      if (_error != null)
+                        Text(
+                          _error!,
+                          style: TextStyle(color: colors.error),
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
                     const SizedBox(height: 18),
                     GradientOutlineButton(
                       label: 'Tamam',
                       strokeWidth: 0.9,
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _sending ? null : () => Navigator.pop(context),
                     ),
                   ] else
                     Form(

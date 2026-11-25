@@ -44,6 +44,10 @@ class AuthSessionManager extends ChangeNotifier {
   Future<void>? _terminationInFlight;
   Timer? _expiryTimer;
   int _credentialIntent = 0;
+  _TokenRotation? _rotation;
+
+  /// True during the notification that installs a new bearer for the same login.
+  bool get isRotatingCurrentLogin => _rotation?.installing == true;
 
   /// Changes before login/logout credential work, including guest-to-guest logout.
   int get credentialRevision => _credentialIntent;
@@ -137,6 +141,73 @@ class AuthSessionManager extends ChangeNotifier {
       if (intent != _credentialIntent) throw StateError('Session superseded');
       _setSession(next);
     });
+  }
+
+  /// Exchanges the current bearer without reviving a logout or a newer login.
+  /// A parallel request may receive a 401 for the old bearer after the server
+  /// commits and before its replacement arrives on this device.
+  Future<bool> rotateAccessToken({
+    required AuthSession expected,
+    required int revision,
+    required Future<String> Function() requestToken,
+  }) async {
+    bool current() =>
+        _credentialIntent == revision &&
+        _session.token == expected.token &&
+        _session.userId == expected.userId;
+    if (!expected.isAuthenticated || !current() || _rotation != null) {
+      return false;
+    }
+    final rotation = _TokenRotation(expected.token!, revision);
+    _rotation = rotation;
+    var serverChanged = false;
+    try {
+      final token = await requestToken().timeout(const Duration(seconds: 45));
+      serverChanged = true;
+      return await _serializeCredentials(() async {
+        if (!current()) return false;
+        AuthSession renewed() {
+          final next = _sessionFromToken(
+            token,
+            metadata: AuthSessionMetadata(
+              username: _session.username,
+              accountStatus: _session.accountStatus,
+              requiresListenerProfileChoice:
+                  _session.requiresListenerProfileChoice,
+            ),
+          );
+          if (!next.isAuthenticated ||
+              next.token == expected.token ||
+              next.userId != expected.userId ||
+              next.sessionScope != expected.sessionScope ||
+              next.applicationId != expected.applicationId) {
+            throw const FormatException('Invalid renewed session');
+          }
+          return next;
+        }
+
+        final prior = _session;
+        final next = renewed();
+        await _tokenStore.writeToken(next.token!);
+        if (!current()) return false;
+        final committed = identical(prior, _session) ? next : renewed();
+        _credentialIntent++;
+        rotation.installing =
+            setEquals(committed.normalizedRoles, _session.normalizedRoles) &&
+            setEquals(
+              committed.permissions.toSet(),
+              _session.permissions.toSet(),
+            );
+        _setSession(committed);
+        rotation.installing = false;
+        return true;
+      });
+    } finally {
+      _rotation = null;
+      if (current() && (serverChanged || rotation.rejected)) {
+        await _terminateSession();
+      }
+    }
   }
 
   /// Only an authoritative approved application exchange may replace a limited
@@ -420,6 +491,13 @@ class AuthSessionManager extends ChangeNotifier {
     final revision = _credentialIntent;
     final rejected = rejectedToken?.trim() ?? '';
     if (rejected.isEmpty) return;
+    final rotation = _rotation;
+    if (rotation != null &&
+        rotation.token == rejected &&
+        rotation.revision == revision) {
+      rotation.rejected = true;
+      return;
+    }
     String? current = _session.token?.trim();
     if (current == null || current.isEmpty) {
       try {
@@ -577,7 +655,7 @@ class AuthSessionManager extends ChangeNotifier {
 
   void _expireSessionIfCurrent(String expectedToken) {
     if (_session.token?.trim() != expectedToken) return;
-    unawaited(_terminateSession());
+    unawaited(rejectUnauthorizedToken(expectedToken));
   }
 
   @override
@@ -586,4 +664,13 @@ class AuthSessionManager extends ChangeNotifier {
     _expiryTimer = null;
     super.dispose();
   }
+}
+
+class _TokenRotation {
+  _TokenRotation(this.token, this.revision);
+
+  final String token;
+  final int revision;
+  bool rejected = false;
+  bool installing = false;
 }

@@ -4,9 +4,10 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
     on _TableGroupDetailScreenState {
   String _displayNameForSender(
     TableGroupParticipant? sender,
-    String senderUserId,
+    String? senderUserId,
   ) {
     if (sender != null) return _participantDisplayName(sender);
+    if (senderUserId == null) return '';
     return senderUserId.length > 8
         ? senderUserId.substring(0, 8)
         : senderUserId;
@@ -320,7 +321,7 @@ extension _TableGroupDetailScreenStateDisplayNameForSenderMethods
     );
   }
 
-  TableGroupParticipant? _participantByUserId(String userId) {
+  TableGroupParticipant? _participantByUserId(String? userId) {
     final group = _group;
     if (group == null) return null;
     for (final participant in group.participants) {

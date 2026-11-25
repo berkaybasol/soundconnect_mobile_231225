@@ -21,6 +21,7 @@ abstract class TableGroupRepository {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   });
   Future<Result<void>> approveJoinRequest({
     required String tableGroupId,

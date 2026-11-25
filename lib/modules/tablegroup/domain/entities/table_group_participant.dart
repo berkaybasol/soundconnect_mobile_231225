@@ -9,6 +9,8 @@ class TableGroupParticipant {
   final TableGroupParticipantStatus status;
   final String? joinNote;
   final String? username;
+  final bool blockedByMe;
+  final bool blockedArrival;
   final String? profilePictureUrl;
   final ListenerVisibilityMode visibilityMode;
 
@@ -19,6 +21,8 @@ class TableGroupParticipant {
     required this.status,
     required this.joinNote,
     required this.username,
+    this.blockedByMe = false,
+    this.blockedArrival = false,
     required this.profilePictureUrl,
     this.visibilityMode = ListenerVisibilityMode.standard,
   });

@@ -94,6 +94,7 @@ class TableGroupGame {
     required this.actionDeadlineAt,
     required this.serverTime,
     required this.players,
+    this.canStart,
     required this.revealedActions,
     required this.selectedUserId,
     required this.selectedUsername,
@@ -111,7 +112,7 @@ class TableGroupGame {
   final TableGroupGameMode mode;
   final TableGroupGameStatus status;
   final TableGroupGamePhase phase;
-  final String createdBy;
+  final String? createdBy;
   final String? createdByUsername;
   final ListenerVisibilityMode createdByVisibilityMode;
   final int round;
@@ -119,6 +120,7 @@ class TableGroupGame {
   final DateTime? actionDeadlineAt;
   final DateTime? serverTime;
   final List<TableGroupGamePlayer> players;
+  final bool? canStart;
   final List<TableGroupGameRevealedAction> revealedActions;
   final String? selectedUserId;
   final String? selectedUsername;

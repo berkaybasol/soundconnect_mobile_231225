@@ -1,70 +1,78 @@
 part of 'table_group_detail_lifecycle_test.dart';
 
 void _registerTableGroupDetailLifecycle2() {
-  testWidgets('accepted list overview defers chat resources until Masaya git', (
-    tester,
-  ) async {
-    final now = DateTime(2026, 8, 17, 18);
-    final tokenStore = _UserTokenStore('guest');
-    final repository = _DetailRepository(
-      group: _group(
-        status: 'ACTIVE',
-        expiresAt: now.add(const Duration(hours: 24)),
-        meetingAt: now.add(const Duration(hours: 3)),
-        description: 'Bu akşam birlikte müzik dinleyelim.',
-        includeGuest: true,
-      ),
-    );
-    final transport = _ImmediateTransportHarness();
-    await serviceLocator.reset();
-    serviceLocator.registerSingleton<DmBadgeCubit>(
-      DmBadgeCubit(
-        _DetailDmRepository(),
-        tokenStore,
-        realtimeClient: _DetailNoopDmRealtimeClient(),
-      ),
-      dispose: (cubit) => cubit.close(),
-    );
-    addTearDown(serviceLocator.reset);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TableGroupDetailScreen(
-          args: const TableGroupDetailArgs(
-            tableGroupId: 'g-1',
-            openChat: false,
-          ),
-          repository: repository,
-          gameRepository: const _NoActiveGameRepository(),
-          tokenStore: tokenStore,
-          realtimeClient: TableGroupChatRealtimeClient(
-            transportFactory: transport.create,
-          ),
-          now: () => now,
+  testWidgets(
+    'accepted overview listens for private updates and defers chat history until Masaya git',
+    (tester) async {
+      final now = DateTime(2026, 8, 17, 18);
+      final tokenStore = _UserTokenStore('guest');
+      final repository = _DetailRepository(
+        group: _group(
+          status: 'ACTIVE',
+          expiresAt: now.add(const Duration(hours: 24)),
+          meetingAt: now.add(const Duration(hours: 3)),
+          description: 'Bu akşam birlikte müzik dinleyelim.',
+          includeGuest: true,
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      final transport = _ImmediateTransportHarness();
+      await serviceLocator.reset();
+      serviceLocator.registerSingleton<DmBadgeCubit>(
+        DmBadgeCubit(
+          _DetailDmRepository(),
+          tokenStore,
+          realtimeClient: _DetailNoopDmRealtimeClient(),
+        ),
+        dispose: (cubit) => cubit.close(),
+      );
+      addTearDown(serviceLocator.reset);
 
-    expect(find.text('Masaya git'), findsOneWidget);
-    expect(repository.chatCalls, 0);
-    expect(transport.created, 0);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TableGroupDetailScreen(
+            args: const TableGroupDetailArgs(
+              tableGroupId: 'g-1',
+              openChat: false,
+            ),
+            repository: repository,
+            gameRepository: const _NoActiveGameRepository(),
+            tokenStore: tokenStore,
+            realtimeClient: TableGroupChatRealtimeClient(
+              transportFactory: transport.create,
+            ),
+            now: () => now,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('table_group_detail_sticky_action')));
-    await tester.pumpAndSettle();
+      expect(find.text('Masaya git'), findsOneWidget);
+      expect(repository.chatCalls, 0);
+      expect(transport.latest!.subscriptions.keys, [
+        '/topic/table-group.g-1.guest',
+      ]);
 
-    expect(repository.chatCalls, 1);
-    expect(transport.created, 1);
-    expect(
-      find.byKey(const ValueKey<String>('table-group-game-launcher')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('table_group_detail_overview')), findsNothing);
-    expect(tester.takeException(), isNull);
+      await tester.tap(
+        find.byKey(const Key('table_group_detail_sticky_action')),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump();
-  });
+      expect(repository.chatCalls, 1);
+      expect(transport.created, 1);
+      expect(
+        find.byKey(const ValueKey<String>('table-group-game-launcher')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('table_group_detail_overview')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
 
   testWidgets('full table detail stays readable but cannot be joined', (
     tester,
@@ -548,7 +556,7 @@ void _registerTableGroupDetailLifecycle2() {
     await tester.pump();
 
     transport.latest!.deliver(
-      '/topic/table-group.g-1',
+      '/topic/table-group.g-1.owner',
       jsonEncode(<String, dynamic>{
         'messageId': 'from-realtime',
         'tableGroupId': 'g-1',

@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsFlag;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
@@ -29,6 +30,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_group_profile_draft.dart';
+import 'package:soundconnect_23_12_25codx/modules/user_block/data/user_block_repository.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
@@ -40,6 +42,7 @@ part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle2.d
 part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle3.dart';
 part 'table_group_report_entry_cases.dart';
 part 'table_group_detail_overlay_cases.dart';
+part 'table_group_block_cases.dart';
 
 void main() {
   _registerTableGroupDetailLifecycle1();
@@ -47,6 +50,7 @@ void main() {
   _registerTableGroupDetailLifecycle3();
   _registerReportEntryCases();
   _registerTableRemovalOverlayCases();
+  _registerTableGroupBlockCases();
 }
 
 TableGroupMessage _expiringGameMessage({
@@ -150,6 +154,13 @@ TableGroup _group({
   String? description,
   String? venueName = 'Test Mekani',
   bool includeGuest = false,
+  bool guestPending = false,
+  String guestMembership = 'guest-membership',
+  List<TableGroupParticipant> additionalMembers = const [],
+  bool ownerBlocked = false,
+  bool ownerArrivedLater = false,
+  bool guestBlocked = false,
+  bool guestArrivedLater = false,
   bool includePending = false,
   String pendingUsername = 'Pending User',
   int extraPendingCount = 0,
@@ -171,8 +182,11 @@ TableGroup _group({
     expiresAt: expiresAt,
     status: status,
     participants: <TableGroupParticipant>[
-      const TableGroupParticipant(
+      TableGroupParticipant(
         userId: 'owner',
+        blockedByMe: ownerBlocked,
+        blockedArrival: ownerArrivedLater,
+        applicationId: 'owner-membership',
         joinedAt: null,
         status: TableGroupParticipantStatus.accepted,
         joinNote: null,
@@ -180,14 +194,20 @@ TableGroup _group({
         profilePictureUrl: null,
       ),
       if (includeGuest)
-        const TableGroupParticipant(
+        TableGroupParticipant(
           userId: 'guest',
+          blockedByMe: guestBlocked,
+          blockedArrival: guestArrivedLater,
+          applicationId: guestMembership,
           joinedAt: null,
-          status: TableGroupParticipantStatus.accepted,
+          status: guestPending
+              ? TableGroupParticipantStatus.pending
+              : TableGroupParticipantStatus.accepted,
           joinNote: null,
           username: 'Guest',
           profilePictureUrl: null,
         ),
+      ...additionalMembers,
       if (includePending)
         TableGroupParticipant(
           userId: 'pending-user',
@@ -220,7 +240,10 @@ class _DetailRepository implements TableGroupRepository {
     this.sendFailuresRemaining = 0,
   });
 
-  final TableGroup group;
+  TableGroup group;
+  int detailCalls = 0;
+  Completer<Result<TableGroup>>? nextDetailResponse;
+  Completer<Result<void>>? joinResponse;
   final List<TableGroupMessage> messages;
   int sendFailuresRemaining;
   final List<String> sentChatContents = <String>[];
@@ -228,14 +251,20 @@ class _DetailRepository implements TableGroupRepository {
   int chatCalls = 0;
   int kickCalls = 0;
   int joinCalls = 0;
+  List<String>? acknowledgedBlocks;
   int approveCalls = 0;
   int rejectCalls = 0;
   String? lastKickedParticipantId;
   Completer<Result<pagination.Page<TableGroupMessage>>>? nextChatResponse;
 
   @override
-  Future<Result<TableGroup>> getDetail(String tableGroupId) async =>
-      Result.success(group);
+  Future<Result<TableGroup>> getDetail(String tableGroupId) async {
+    ++detailCalls;
+    final delayed = nextDetailResponse;
+    nextDetailResponse = null;
+    if (delayed != null) return delayed.future;
+    return Result.success(group);
+  }
 
   @override
   Future<Result<pagination.Page<TableGroupMessage>>> getChatMessages({
@@ -280,8 +309,11 @@ class _DetailRepository implements TableGroupRepository {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   }) async {
     joinCalls += 1;
+    acknowledgedBlocks = acknowledgedBlockedMemberIds;
+    if (joinResponse != null) return joinResponse!.future;
     return const Result.success(null);
   }
 
@@ -509,12 +541,17 @@ class _UserTokenStore implements TokenStore {
 }
 
 class _ImmediateTransportHarness {
+  _ImmediateTransportHarness({this.receiptHandler});
+  final void Function(void Function())? receiptHandler;
   int created = 0;
   _ImmediateTransport? latest;
 
   RealtimeTransport create(RealtimeTransportConfig config) {
     created += 1;
-    final transport = _ImmediateTransport(config);
+    final transport = _ImmediateTransport(
+      config,
+      receiptHandler: receiptHandler,
+    );
     latest = transport;
     return transport;
   }
@@ -541,7 +578,8 @@ class _TrackingTableGroupChatRealtimeClient
 }
 
 class _ImmediateTransport implements RealtimeTransport {
-  _ImmediateTransport(this.config);
+  _ImmediateTransport(this.config, {this.receiptHandler});
+  final void Function(void Function())? receiptHandler;
 
   final RealtimeTransportConfig config;
   final Map<String, RealtimeMessageCallback> subscriptions =
@@ -569,7 +607,14 @@ class _ImmediateTransport implements RealtimeTransport {
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
+    void Function()? onReceipt,
   }) {
     subscriptions[destination] = callback;
+    if (onReceipt == null) return;
+    if (receiptHandler != null) {
+      receiptHandler!(onReceipt);
+    } else {
+      onReceipt();
+    }
   }
 }

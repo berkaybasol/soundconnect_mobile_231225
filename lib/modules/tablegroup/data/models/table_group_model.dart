@@ -242,6 +242,8 @@ class TableGroupModel extends TableGroup {
     }
     return TableGroupParticipant(
       userId: _requiredText(item, 'userId'),
+      blockedByMe: item['blockedByMe'] as bool? ?? false,
+      blockedArrival: item['blockedArrival'] as bool? ?? false,
       applicationId: _optionalWireText(item['applicationId'], 'applicationId'),
       joinedAt: joinedAt,
       status: status,
@@ -292,6 +294,8 @@ class TableGroupModel extends TableGroup {
       };
       return TableGroupParticipant(
         userId: item['userId']?.toString() ?? '',
+        blockedByMe: item['blockedByMe'] == true,
+        blockedArrival: item['blockedArrival'] == true,
         applicationId: item['applicationId']?.toString(),
         joinedAt: parseTableGroupWireDate(item['joinedAt']),
         status: status,

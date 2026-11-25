@@ -559,6 +559,10 @@ class DioApiClient implements ApiClient {
   Future<void> _rejectUnauthorizedRequest(RequestOptions options) async {
     if (_isPublicRequest(options)) return;
     final rejectedToken = options.extra[_requestTokenKey]?.toString();
+    if (options.extra[_sentRevisionKey] !=
+        _sessionManager?.credentialRevision) {
+      return;
+    }
     await _sessionManager?.rejectUnauthorizedToken(rejectedToken);
   }
 

@@ -154,8 +154,13 @@ TableGroup _group({
   String? description,
   String? venueName = 'Test Mekani',
   bool includeGuest = false,
+  bool guestPending = false,
+  String guestMembership = 'guest-membership',
+  List<TableGroupParticipant> additionalMembers = const [],
   bool ownerBlocked = false,
   bool ownerArrivedLater = false,
+  bool guestBlocked = false,
+  bool guestArrivedLater = false,
   bool includePending = false,
   String pendingUsername = 'Pending User',
   int extraPendingCount = 0,
@@ -189,14 +194,20 @@ TableGroup _group({
         profilePictureUrl: null,
       ),
       if (includeGuest)
-        const TableGroupParticipant(
+        TableGroupParticipant(
           userId: 'guest',
+          blockedByMe: guestBlocked,
+          blockedArrival: guestArrivedLater,
+          applicationId: guestMembership,
           joinedAt: null,
-          status: TableGroupParticipantStatus.accepted,
+          status: guestPending
+              ? TableGroupParticipantStatus.pending
+              : TableGroupParticipantStatus.accepted,
           joinNote: null,
           username: 'Guest',
           profilePictureUrl: null,
         ),
+      ...additionalMembers,
       if (includePending)
         TableGroupParticipant(
           userId: 'pending-user',
@@ -229,7 +240,10 @@ class _DetailRepository implements TableGroupRepository {
     this.sendFailuresRemaining = 0,
   });
 
-  final TableGroup group;
+  TableGroup group;
+  int detailCalls = 0;
+  Completer<Result<TableGroup>>? nextDetailResponse;
+  Completer<Result<void>>? joinResponse;
   final List<TableGroupMessage> messages;
   int sendFailuresRemaining;
   final List<String> sentChatContents = <String>[];
@@ -244,8 +258,13 @@ class _DetailRepository implements TableGroupRepository {
   Completer<Result<pagination.Page<TableGroupMessage>>>? nextChatResponse;
 
   @override
-  Future<Result<TableGroup>> getDetail(String tableGroupId) async =>
-      Result.success(group);
+  Future<Result<TableGroup>> getDetail(String tableGroupId) async {
+    ++detailCalls;
+    final delayed = nextDetailResponse;
+    nextDetailResponse = null;
+    if (delayed != null) return delayed.future;
+    return Result.success(group);
+  }
 
   @override
   Future<Result<pagination.Page<TableGroupMessage>>> getChatMessages({
@@ -294,6 +313,7 @@ class _DetailRepository implements TableGroupRepository {
   }) async {
     joinCalls += 1;
     acknowledgedBlocks = acknowledgedBlockedMemberIds;
+    if (joinResponse != null) return joinResponse!.future;
     return const Result.success(null);
   }
 
@@ -521,12 +541,17 @@ class _UserTokenStore implements TokenStore {
 }
 
 class _ImmediateTransportHarness {
+  _ImmediateTransportHarness({this.receiptHandler});
+  final void Function(void Function())? receiptHandler;
   int created = 0;
   _ImmediateTransport? latest;
 
   RealtimeTransport create(RealtimeTransportConfig config) {
     created += 1;
-    final transport = _ImmediateTransport(config);
+    final transport = _ImmediateTransport(
+      config,
+      receiptHandler: receiptHandler,
+    );
     latest = transport;
     return transport;
   }
@@ -553,7 +578,8 @@ class _TrackingTableGroupChatRealtimeClient
 }
 
 class _ImmediateTransport implements RealtimeTransport {
-  _ImmediateTransport(this.config);
+  _ImmediateTransport(this.config, {this.receiptHandler});
+  final void Function(void Function())? receiptHandler;
 
   final RealtimeTransportConfig config;
   final Map<String, RealtimeMessageCallback> subscriptions =
@@ -581,7 +607,14 @@ class _ImmediateTransport implements RealtimeTransport {
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
+    void Function()? onReceipt,
   }) {
     subscriptions[destination] = callback;
+    if (onReceipt == null) return;
+    if (receiptHandler != null) {
+      receiptHandler!(onReceipt);
+    } else {
+      onReceipt();
+    }
   }
 }

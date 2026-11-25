@@ -335,8 +335,10 @@ class _FakeRealtimeTransport implements RealtimeTransport {
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
+    void Function()? onReceipt,
   }) {
     subscriptions[destination] = callback;
+    onReceipt?.call();
   }
 }
 

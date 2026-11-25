@@ -31,6 +31,7 @@ abstract interface class RealtimeTransport {
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
+    void Function()? onReceipt,
   });
 
   void send({required String destination, required String body});
@@ -41,42 +42,59 @@ RealtimeTransport createStompRealtimeTransport(RealtimeTransportConfig config) {
 }
 
 class StompRealtimeTransport implements RealtimeTransport {
-  StompRealtimeTransport(RealtimeTransportConfig config)
-    : _client = StompClient(
-        config: StompConfig.sockJS(
-          url: config.url,
-          reconnectDelay: const Duration(seconds: 4),
-          heartbeatIncoming: const Duration(seconds: 10),
-          heartbeatOutgoing: const Duration(seconds: 10),
-          webSocketConnectHeaders: <String, String>{
-            'Authorization': 'Bearer ${config.token}',
-          },
-          stompConnectHeaders: <String, String>{
-            'Authorization': 'Bearer ${config.token}',
-          },
-          onConnect: (_) => config.onConnect(),
-          onStompError: (_) => config.onProtocolError(),
-          onWebSocketError: (_) => config.onTransportError(),
-          onWebSocketDone: config.onSocketDone ?? config.onDisconnect,
-          onDisconnect: (_) => config.onDisconnect(),
-        ),
-      );
+  StompRealtimeTransport(RealtimeTransportConfig config) {
+    _client = StompClient(
+      config: StompConfig.sockJS(
+        url: config.url,
+        reconnectDelay: const Duration(seconds: 4),
+        heartbeatIncoming: const Duration(seconds: 10),
+        heartbeatOutgoing: const Duration(seconds: 10),
+        webSocketConnectHeaders: <String, String>{
+          'Authorization': 'Bearer ${config.token}',
+        },
+        stompConnectHeaders: <String, String>{
+          'Authorization': 'Bearer ${config.token}',
+        },
+        onConnect: (_) {
+          _pendingReceipts.clear();
+          config.onConnect();
+        },
+        onUnhandledReceipt: (frame) =>
+            _pendingReceipts.remove(frame.headers['receipt-id'])?.call(),
+        onStompError: (_) => config.onProtocolError(),
+        onWebSocketError: (_) => config.onTransportError(),
+        onWebSocketDone: config.onSocketDone ?? config.onDisconnect,
+        onDisconnect: (_) => config.onDisconnect(),
+      ),
+    );
+  }
 
-  final StompClient _client;
+  late final StompClient _client;
+  final _pendingReceipts = <String, void Function()>{};
+  int _subscriptionReceipt = 0;
 
   @override
   void activate() => _client.activate();
 
   @override
-  void deactivate() => _client.deactivate();
+  void deactivate() {
+    _pendingReceipts.clear();
+    _client.deactivate();
+  }
 
   @override
   void subscribe({
     required String destination,
     required RealtimeMessageCallback callback,
+    void Function()? onReceipt,
   }) {
+    final receipt = onReceipt == null
+        ? null
+        : 'subscribe-${++_subscriptionReceipt}';
+    if (onReceipt != null) _pendingReceipts[receipt!] = onReceipt;
     _client.subscribe(
       destination: destination,
+      headers: {if (receipt != null) 'receipt': receipt},
       callback: (frame) => callback(frame.body),
     );
   }

@@ -13,8 +13,17 @@ extension _TableGroupDetailBlockMethods on _TableGroupDetailScreenState {
       unawaited(_loadDetail(replaceScreenOnFailure: false));
       return;
     }
+    final followLatest = _isNearLatest;
     _discardChatProjection();
-    unawaited(_refreshVisibility(_visibilityGeneration));
+    final refresh = _refreshVisibility(_visibilityGeneration, followLatest);
+    _reconciliationInFlight = refresh;
+    unawaited(
+      refresh.whenComplete(() {
+        if (identical(_reconciliationInFlight, refresh)) {
+          _reconciliationInFlight = null;
+        }
+      }),
+    );
   }
 
   void _discardChatProjection() {
@@ -31,12 +40,12 @@ extension _TableGroupDetailBlockMethods on _TableGroupDetailScreenState {
     });
   }
 
-  Future<void> _refreshVisibility(int generation) async {
+  Future<void> _refreshVisibility(int generation, bool followLatest) async {
     await _loadDetail(replaceScreenOnFailure: false);
     if (!mounted || generation != _visibilityGeneration || !_shouldRunChat) {
       return;
     }
-    await _loadMessages(reset: true);
+    await _loadMessages(reset: true, followLatest: followLatest);
     if (!mounted || generation != _visibilityGeneration || !_shouldRunChat) {
       return;
     }
@@ -82,8 +91,18 @@ extension _TableGroupDetailBlockMethods on _TableGroupDetailScreenState {
           _hasActiveChatAccess &&
           ModalRoute.of(context)?.isCurrent == true) {
         final group = _group!;
-        String key(TableGroupParticipant member) =>
-            '${group.id}/${member.userId}/${member.applicationId ?? member.joinedAt?.toUtc().toIso8601String() ?? ''}';
+        final viewer = _participantByUserId(_currentUserId);
+        final viewerMembership =
+            viewer?.applicationId ??
+            viewer?.joinedAt?.toUtc().toIso8601String();
+        String key(TableGroupParticipant member) {
+          final memberKey =
+              '${group.id}/${member.userId}/${member.applicationId ?? member.joinedAt?.toUtc().toIso8601String() ?? ''}';
+          return _isOwner || viewerMembership == null
+              ? memberKey
+              : '$memberKey/$viewerMembership';
+        }
+
         final member = group.participants
             .where(
               (person) =>

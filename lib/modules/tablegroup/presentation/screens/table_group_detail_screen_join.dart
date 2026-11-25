@@ -12,6 +12,7 @@ extension _TableGroupDetailScreenStateJoinMethods
       return;
     }
     _joinDialogOpen = true;
+    final settled = _joinSettled = Completer<void>();
     try {
       var note = '';
       while (_sameTableSession && _isSessionActive) {
@@ -61,10 +62,12 @@ extension _TableGroupDetailScreenStateJoinMethods
               ? AppSnackBarTone.success
               : AppSnackBarTone.error,
         );
-        if (result.isSuccess) await _loadDetail(replaceScreenOnFailure: false);
+        if (result.isSuccess) await _bootstrap();
         return;
       }
     } finally {
+      _joinSettled = null;
+      settled.complete();
       _joinDialogOpen = false;
       if (mounted) _updateView(() => _joinInFlight = false);
     }

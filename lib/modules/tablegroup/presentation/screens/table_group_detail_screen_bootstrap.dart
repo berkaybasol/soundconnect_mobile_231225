@@ -21,8 +21,13 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       _currentUserId = await resolveCurrentUserId(_tokenStore);
       final detailLoaded = await _loadDetail(replaceScreenOnFailure: true);
       if (!detailLoaded || !mounted) return;
+      final beforeSubscribe = _visibilityGeneration;
       if (_hasActiveChatAccess) await _connectRealtime();
       if (!mounted) return;
+      if (_visibilityGeneration != beforeSubscribe) {
+        await _reconciliationInFlight;
+        return;
+      }
       if (_shouldRunChat) {
         await _loadMessages(reset: true, followLatest: true);
         if (!mounted || !_shouldRunChat) return;
@@ -108,8 +113,6 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }) async {
     if (_chatLoading || !_shouldRunChat) return;
     final generation = _visibilityGeneration;
-    final loadCompleter = Completer<void>();
-    _chatLoadCompleter = loadCompleter;
     final resetSnapshot = reset
         ? <String, TableGroupMessage>{
             for (final message in _messages) message.messageId: message,
@@ -140,12 +143,10 @@ extension _TableGroupDetailScreenStateBootstrapMethods
             size: 30,
           );
     if (!mounted || generation != _visibilityGeneration || !_sameTableSession) {
-      _finishChatLoad(loadCompleter);
       return;
     }
     if (!_shouldRunChat) {
       _updateView(() => _chatLoading = false);
-      _finishChatLoad(loadCompleter);
       return;
     }
     if (!result.isSuccess || result.data == null) {
@@ -154,7 +155,6 @@ extension _TableGroupDetailScreenStateBootstrapMethods
         _chatRetryReset = reset;
         _chatError = result.error?.message ?? 'Sohbet gecmisi yuklenemedi';
       });
-      _finishChatLoad(loadCompleter);
       return;
     }
     final incoming = result.data!;
@@ -206,14 +206,6 @@ extension _TableGroupDetailScreenStateBootstrapMethods
         _chatScrollController.jumpTo(target);
       });
     }
-    _finishChatLoad(loadCompleter);
-  }
-
-  void _finishChatLoad(Completer<void> completer) {
-    if (identical(_chatLoadCompleter, completer)) {
-      _chatLoadCompleter = null;
-    }
-    if (!completer.isCompleted) completer.complete();
   }
 
   void _onRealtimeMsg(TableGroupMessage message) {
@@ -248,11 +240,24 @@ extension _TableGroupDetailScreenStateBootstrapMethods
         session == null ||
         !_sameTableSession ||
         notice.recipientId != session.userId ||
-        notice.type != 'TABLE_CANCELLED' ||
         notice.payload['module'] != 'TABLE' ||
-        notice.payload['action'] != 'CANCELLED' ||
-        notice.payload['reason'] != 'ADMIN_REMOVED' ||
         notice.payload['tableGroupId'] != widget.args.tableGroupId) {
+      return;
+    }
+    if (notice.type == 'TABLE_JOIN_REQUEST_APPROVED' &&
+        notice.payload['action'] == 'JOIN_REQUEST_APPROVED') {
+      final applicationId = notice.payload['applicationId'];
+      final ownerId = notice.payload['ownerId'];
+      if (applicationId is String &&
+          applicationId.isNotEmpty &&
+          ownerId is String) {
+        unawaited(_refreshApprovedApplication(applicationId, ownerId));
+      }
+      return;
+    }
+    if (notice.type != 'TABLE_CANCELLED' ||
+        notice.payload['action'] != 'CANCELLED' ||
+        notice.payload['reason'] != 'ADMIN_REMOVED') {
       return;
     }
     // A closed room no longer delivers chat frames. Its removal reaches each
@@ -262,6 +267,32 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     _chatController.clear();
     _dismissTableOverlays();
     _handleExpiry();
+  }
+
+  Future<void> _refreshApprovedApplication(
+    String applicationId,
+    String ownerId,
+  ) async {
+    final key = (applicationId, ownerId);
+    if (!_approvalRefreshes.add(key)) return;
+    try {
+      // Approval can precede the join response or an older pending snapshot.
+      if (_joinInFlight) await _joinSettled?.future;
+      await _bootstrapInFlight;
+      if (!mounted ||
+          !_sameTableSession ||
+          !_isSessionActive ||
+          _group?.ownerId != ownerId) {
+        return;
+      }
+      final applicant = _participantByUserId(_currentUserId);
+      if (applicant?.status == TableGroupParticipantStatus.pending &&
+          applicant?.applicationId == applicationId) {
+        await _bootstrap();
+      }
+    } finally {
+      _approvalRefreshes.remove(key);
+    }
   }
 
   void _onGameState(TableGroupGameState state) {
@@ -301,44 +332,9 @@ extension _TableGroupDetailScreenStateBootstrapMethods
         _realtimeClient.connectedTableGroupId != widget.args.tableGroupId) {
       return;
     }
-    final shouldReconcile = _realtimeError != null;
-    if (shouldReconcile && !_shouldRunChat) {
-      unawaited(_loadDetail(replaceScreenOnFailure: false));
-    }
-    if (shouldReconcile && _shouldRunChat) {
-      _queueReconnectReconciliation();
-    } else {
-      _updateView(() => _realtimeError = null);
-    }
-  }
-
-  void _queueReconnectReconciliation() {
-    if (_reconciliationInFlight != null) return;
-    final future = _reconcileAfterReconnect();
-    _reconciliationInFlight = future;
-    unawaited(
-      future.whenComplete(() {
-        if (identical(_reconciliationInFlight, future)) {
-          _reconciliationInFlight = null;
-        }
-      }),
-    );
-  }
-
-  Future<void> _reconcileAfterReconnect() async {
-    final currentLoad = _chatLoadCompleter;
-    if (currentLoad != null) await currentLoad.future;
-    if (!mounted || !_shouldRunChat) return;
-    final detailLoaded = await _loadDetail(replaceScreenOnFailure: false);
-    if (!detailLoaded || !mounted || !_shouldRunChat) return;
-    await _loadMessages(reset: true, followLatest: _isNearLatest);
-    if (!mounted || !_shouldRunChat) return;
-    await _gameCubit.loadActive(exposeError: false);
-    if (!mounted || !_shouldRunChat || _chatError != null) return;
-    if (_realtimeClient.isConnected &&
-        _realtimeClient.connectedTableGroupId == widget.args.tableGroupId) {
-      _updateView(() => _realtimeError = null);
-    }
+    // A membership approval or a block may have committed after the first
+    // detail read but before the broker installed this subscription.
+    _onRoomChange(TableGroupRoomChange.visibility);
   }
 
   void _onRealtimeError(RealtimeClientError error) {
@@ -444,8 +440,13 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       await _connectRealtime();
       return;
     }
+    final beforeSubscribe = _visibilityGeneration;
     await _connectRealtime();
     if (!mounted || !_shouldRunChat) return;
+    if (beforeSubscribe != _visibilityGeneration) {
+      await _reconciliationInFlight;
+      return;
+    }
     final followLatest = _isNearLatest;
     await _loadMessages(reset: true, followLatest: followLatest);
     if (!mounted || !_shouldRunChat) return;

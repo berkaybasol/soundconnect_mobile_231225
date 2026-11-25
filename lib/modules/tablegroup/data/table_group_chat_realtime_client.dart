@@ -26,15 +26,17 @@ class TableGroupChatRealtimeClient {
   Future<void>? _connectInFlight;
   Completer<void>? _pendingConnect;
   int _generation = 0;
+  int _subscriptionEpoch = 0;
+  Timer? _unconfirmedSubscription;
   int _retainCount = 0;
 
   final StreamController<TableGroupMessage> _messageController =
       StreamController<TableGroupMessage>.broadcast();
   final StreamController<void> _connectionController =
-      StreamController<void>.broadcast();
+      StreamController<void>.broadcast(sync: true);
   final _controls = StreamController<TableGroupRoomChange>.broadcast();
   final StreamController<RealtimeClientError> _errorController =
-      StreamController<RealtimeClientError>.broadcast();
+      StreamController<RealtimeClientError>.broadcast(sync: true);
 
   Stream<TableGroupMessage> get messageStream => _messageController.stream;
   Stream<void> get connectionStream => _connectionController.stream;
@@ -107,6 +109,7 @@ class TableGroupChatRealtimeClient {
 
     void fail(RealtimeClientError error) {
       if (generation != _generation) return;
+      _invalidateSubscription();
       _connected = false;
       _connectedTableGroupId = null;
       _emitError(error);
@@ -116,6 +119,7 @@ class TableGroupChatRealtimeClient {
 
     void handleDisconnect() {
       if (generation != _generation) return;
+      _invalidateSubscription();
       final wasConnected = _connected;
       _connected = false;
       _connectedTableGroupId = null;
@@ -150,9 +154,6 @@ class TableGroupChatRealtimeClient {
               _viewerId = viewerId;
               _token = token;
               _bindSubscriptions(tableGroupId, viewerId, generation);
-              if (!_connectionController.isClosed) {
-                _connectionController.add(null);
-              }
               if (!completer.isCompleted) completer.complete();
               if (identical(_pendingConnect, completer)) {
                 _pendingConnect = null;
@@ -215,6 +216,7 @@ class TableGroupChatRealtimeClient {
 
   Future<void> disconnect() async {
     _generation += 1;
+    _invalidateSubscription();
     _connected = false;
     _viewerId = null;
     _token = null;
@@ -247,6 +249,7 @@ class TableGroupChatRealtimeClient {
   void _cleanupFailedConnection(int generation) {
     if (generation != _generation) return;
     _generation += 1;
+    _invalidateSubscription();
     _connected = false;
     _connectedTableGroupId = null;
     _pendingConnect = null;
@@ -262,21 +265,54 @@ class TableGroupChatRealtimeClient {
   ) {
     final transport = _transport;
     if (transport == null) return;
+    _invalidateSubscription();
+    final epoch = _subscriptionEpoch;
 
     bool isCurrentConnection() {
       return generation == _generation &&
+          epoch == _subscriptionEpoch &&
           _connected &&
           _connectedTableGroupId == tableGroupId &&
           identical(_transport, transport);
     }
 
+    var confirmed = false;
+    void subscriptionReady() {
+      if (confirmed || !isCurrentConnection()) return;
+      confirmed = true;
+      _unconfirmedSubscription?.cancel();
+      if (!_connectionController.isClosed) _connectionController.add(null);
+    }
+
+    // Spring's local simple broker does not implement STOMP receipts.
+    // Keep the REST projection current until a frame proves delivery.
+    _unconfirmedSubscription = Timer(const Duration(seconds: 3), () {
+      if (!isCurrentConnection() || _controls.isClosed) return;
+      _controls.add(TableGroupRoomChange.visibility);
+      // Poll durable arrival flags without resetting the reader's chat pages.
+      _unconfirmedSubscription = Timer.periodic(const Duration(seconds: 30), (
+        _,
+      ) {
+        if (isCurrentConnection() && !_controls.isClosed) {
+          _controls.add(TableGroupRoomChange.membership);
+        }
+      });
+    });
     transport.subscribe(
       destination: StompDestinations.tableGroup(tableGroupId, viewerId),
+      onReceipt: subscriptionReady,
       callback: (body) {
         if (!isCurrentConnection()) return;
+        subscriptionReady();
         _onFrame(body, expectedTableGroupId: tableGroupId);
       },
     );
+  }
+
+  void _invalidateSubscription() {
+    ++_subscriptionEpoch;
+    _unconfirmedSubscription?.cancel();
+    _unconfirmedSubscription = null;
   }
 
   void _onFrame(String? body, {required String expectedTableGroupId}) {

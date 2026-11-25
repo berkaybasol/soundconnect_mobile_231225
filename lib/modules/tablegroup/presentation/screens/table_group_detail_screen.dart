@@ -170,6 +170,7 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   int _visibilityGeneration = 0;
   int _detailRequest = 0;
   final Set<String> _handledArrivals = {};
+  final Set<(String, String)> _approvalRefreshes = {};
   bool _presentingArrival = false;
   StreamSubscription<AppNotification>? _moderationSubscription;
   StreamSubscription<void>? _personalConnectionSubscription;
@@ -179,7 +180,6 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   Future<void>? _bootstrapInFlight;
   Future<void>? _resumeInFlight;
   Future<void>? _reconciliationInFlight;
-  Completer<void>? _chatLoadCompleter;
   Timer? _expiryTimer;
   Timer? _gameExpiryRetryTimer;
   String? _gameExpiryRetryToken;
@@ -190,6 +190,7 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   bool _connectingRealtime = false;
   bool _sending = false;
   bool _joinInFlight = false;
+  Completer<void>? _joinSettled;
   bool _joinDialogOpen = false;
   bool _sessionActionInFlight = false;
   bool _gameLauncherOpen = false;
@@ -289,10 +290,10 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
         _onTableNotification,
       );
       _personalConnectionSubscription = personal.connectionStream.listen((_) {
-        if (mounted &&
-            _shouldRunChat &&
-            _shareSession != null &&
-            _sameTableSession) {
+        if (!mounted || _shareSession == null || !_sameTableSession) return;
+        if (_myStatus == TableGroupParticipantStatus.pending) {
+          unawaited(_bootstrap());
+        } else if (_shouldRunChat) {
           unawaited(_loadDetail(replaceScreenOnFailure: false));
         }
       });

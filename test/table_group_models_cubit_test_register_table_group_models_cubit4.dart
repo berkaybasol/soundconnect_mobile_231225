@@ -105,7 +105,10 @@ void _registerTableGroupModelsCubit4() {
         await repository.joinTableGroup(tableGroupId: 'g-1', note: '  Hi  ');
         expect(apiClient.lastMethod, 'POST');
         expect(apiClient.lastPath, TableGroupEndpoints.join('g-1'));
-        expect(apiClient.lastBody, <String, dynamic>{'note': 'Hi'});
+        expect(apiClient.lastBody, <String, dynamic>{
+          'note': 'Hi',
+          'acknowledgedBlockedMemberIds': [],
+        });
 
         final sent = await repository.sendChatMessage(
           tableGroupId: 'g-1',

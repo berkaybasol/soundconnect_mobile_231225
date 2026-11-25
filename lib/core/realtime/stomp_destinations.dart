@@ -17,6 +17,6 @@ abstract final class StompDestinations {
 
   static String dmBadge(String userId) => '${dm(userId)}.badge';
 
-  static String tableGroup(String tableGroupId) =>
-      '$_tableGroupTopic.$tableGroupId';
+  static String tableGroup(String tableGroupId, String viewerId) =>
+      '$_tableGroupTopic.$tableGroupId.$viewerId';
 }

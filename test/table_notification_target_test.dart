@@ -168,6 +168,7 @@ class _ChatRealtime extends TableGroupChatRealtimeClient {
   @override
   Future<void> connect({
     required String tableGroupId,
+    required String viewerId,
     required String token,
   }) async {}
   @override

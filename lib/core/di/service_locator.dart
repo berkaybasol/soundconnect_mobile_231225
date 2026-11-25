@@ -29,6 +29,7 @@ import '../../modules/tablegroup/domain/table_group_profile_share_repository.dar
 import '../../modules/auth/data/auth_repository_impl.dart';
 import '../../modules/auth/data/google_auth_repository.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
+import '../../modules/auth/data/account_password_repository.dart';
 import '../../modules/auth/domain/account_deletion_repository.dart';
 import '../../modules/auth/domain/auth_repository.dart';
 import '../../modules/auth/domain/usecases/check_username_availability_usecase.dart';
@@ -756,6 +757,12 @@ void setupDependencies() {
     )
     ..registerLazySingleton<AccountDeletionRepository>(
       () => AccountDeletionRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<AccountPasswordRepository>(
+      () => AccountPasswordRepository(
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),

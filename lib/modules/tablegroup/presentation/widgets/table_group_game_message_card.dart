@@ -174,6 +174,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
     required bool isCreator,
     required bool canCancel,
   }) {
+    final canStart = game.canStart ?? joinedPlayers.length >= 2;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -228,14 +229,12 @@ class TableGroupGameMessageCard extends StatelessWidget {
               GradientOutline(
                 enabled: AppColors.isLight,
                 radius: 13,
-                colors: !actionInFlight && joinedPlayers.length >= 2
+                colors: !actionInFlight && canStart
                     ? AppColors.decorativeGradient
                     : [AppColors.border, AppColors.border],
                 child: FilledButton(
                   key: const ValueKey<String>('table-group-game-start'),
-                  onPressed: actionInFlight || joinedPlayers.length < 2
-                      ? null
-                      : onStart,
+                  onPressed: actionInFlight || !canStart ? null : onStart,
                   style: _filledStyle(context),
                   child: const Text('Şimdi başlat'),
                 ),

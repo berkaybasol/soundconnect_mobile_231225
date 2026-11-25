@@ -15,6 +15,26 @@ void main() {
 
     expect(actor.contactUsername, isEmpty);
   });
+
+  test('profile availability is independent of the historical contact', () {
+    final accountDeleted = _actorJson()
+      ..['profileType'] = 'MUSICIAN'
+      ..['contactUserId'] = null
+      ..['profileAvailable'] = false;
+    expect(CollabActorModel.fromJson(accountDeleted).canOpenProfile, isFalse);
+
+    final continuingBand = _actorJson()
+      ..['contactUserId'] = null
+      ..['profileAvailable'] = true;
+    final band = CollabActorModel.fromJson(continuingBand);
+    expect(band.canOpenProfile, isTrue);
+    expect(band.contactUserId, isEmpty);
+
+    final oldReview = _actorJson()
+      ..['profileType'] = 'MUSICIAN'
+      ..remove('contactUserId');
+    expect(CollabActorModel.fromJson(oldReview).canOpenProfile, isTrue);
+  });
 }
 
 Map<String, dynamic> _actorJson({String? contactUsername}) => <String, dynamic>{

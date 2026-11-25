@@ -207,7 +207,7 @@ class CollabActorHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
-      onTap: onTap,
+      onTap: actor.canOpenProfile ? onTap : null,
       borderRadius: BorderRadius.circular(14),
       child: Row(
         children: [

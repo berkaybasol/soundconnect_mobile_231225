@@ -860,6 +860,37 @@ void main() {
     },
   );
 
+  testWidgets('creator can start a lobby with an unseen second player', (
+    tester,
+  ) async {
+    final json = _gameMessageJson(mode: 'VOTE');
+    (json['game'] as Map<String, dynamic>)['canStart'] = true;
+    var started = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TableGroupGameMessageCard(
+            message: TableGroupMessageModel.fromWireJson(json),
+            currentUserId: 'owner',
+            canCancelGame: true,
+            actionInFlight: false,
+            onJoin: () {},
+            onLeave: () {},
+            onStart: () => started = true,
+            onCancel: () {},
+            onAction: (_, __) {},
+            onExpired: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('table-group-game-start')),
+    );
+    expect(started, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('completed card renders backend result message exactly', (
     tester,
   ) async {

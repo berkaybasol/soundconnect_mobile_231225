@@ -60,7 +60,11 @@ void main() {
       final streamedError = client.errorStream.first;
 
       await expectLater(
-        client.connect(tableGroupId: 'g1', token: 'redacted'),
+        client.connect(
+          tableGroupId: 'g1',
+          viewerId: 'viewer',
+          token: 'redacted',
+        ),
         throwsA(
           isA<RealtimeClientError>().having(
             (error) => error.type,
@@ -307,17 +311,25 @@ void main() {
         );
         addTearDown(client.dispose);
 
-        await client.connect(tableGroupId: 'group-1', token: 'token-3');
-        await client.connect(tableGroupId: 'group-1', token: 'token-3');
+        await client.connect(
+          tableGroupId: 'group-1',
+          viewerId: 'viewer',
+          token: 'token-3',
+        );
+        await client.connect(
+          tableGroupId: 'group-1',
+          viewerId: 'viewer',
+          token: 'token-3',
+        );
         expect(harness.createCalls, 1);
         expect(client.connectedTableGroupId, 'group-1');
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/table-group.group-1',
+          '/topic/table-group.group-1.viewer',
         });
 
         final message = client.messageStream.first;
         harness.transport!.deliver(
-          '/topic/table-group.group-1',
+          '/topic/table-group.group-1.viewer',
           jsonEncode(<String, dynamic>{
             'messageId': 'group-message-1',
             'tableGroupId': 'group-1',
@@ -411,10 +423,14 @@ void main() {
         transportFactory: harness.create,
       );
       addTearDown(client.dispose);
-      await client.connect(tableGroupId: 'g1', token: 'redacted');
+      await client.connect(
+        tableGroupId: 'g1',
+        viewerId: 'viewer',
+        token: 'redacted',
+      );
       final error = client.errorStream.first;
 
-      harness.transport!.deliver('/topic/table-group.g1', '[]');
+      harness.transport!.deliver('/topic/table-group.g1.viewer', '[]');
 
       expect((await error).type, RealtimeClientErrorType.invalidPayload);
     });

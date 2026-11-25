@@ -165,6 +165,24 @@ void main() {
     });
   }
 
+  testWidgets('founder can leave when another active founder remains', (
+    tester,
+  ) async {
+    bands.profile = _profile(role: 'FOUNDER');
+    bands.profile.members.add(
+      const BandMemberSummary(
+        userId: 'other-user',
+        profileId: 'other-profile',
+        username: 'other',
+        profilePictureUrl: null,
+        role: 'FOUNDER',
+        status: 'ACTIVE',
+      ),
+    );
+    await _open(tester);
+    expect(find.byKey(const Key('band-profile-leave-action')), findsOneWidget);
+  });
+
   for (final membership in [
     (role: 'FOUNDER', status: 'ACTIVE', user: 'aedrum-user'),
     (role: ' founder ', status: ' active ', user: 'aedrum-user'),

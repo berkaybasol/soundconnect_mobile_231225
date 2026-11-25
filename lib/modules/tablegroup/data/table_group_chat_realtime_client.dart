@@ -21,6 +21,8 @@ class TableGroupChatRealtimeClient {
   RealtimeTransport? _transport;
   bool _connected = false;
   String? _connectedTableGroupId;
+  String? _viewerId;
+  String? _token;
   Future<void>? _connectInFlight;
   Completer<void>? _pendingConnect;
   int _generation = 0;
@@ -30,11 +32,13 @@ class TableGroupChatRealtimeClient {
       StreamController<TableGroupMessage>.broadcast();
   final StreamController<void> _connectionController =
       StreamController<void>.broadcast();
+  final _controls = StreamController<TableGroupRoomChange>.broadcast();
   final StreamController<RealtimeClientError> _errorController =
       StreamController<RealtimeClientError>.broadcast();
 
   Stream<TableGroupMessage> get messageStream => _messageController.stream;
   Stream<void> get connectionStream => _connectionController.stream;
+  Stream<TableGroupRoomChange> get changes => _controls.stream;
   Stream<RealtimeClientError> get errorStream => _errorController.stream;
   bool get isConnected => _connected;
   String? get connectedTableGroupId => _connectedTableGroupId;
@@ -50,9 +54,15 @@ class TableGroupChatRealtimeClient {
 
   Future<void> connect({
     required String tableGroupId,
+    required String viewerId,
     required String token,
   }) async {
-    if (_connected && _connectedTableGroupId == tableGroupId) return;
+    bool matches() =>
+        _connected &&
+        _connectedTableGroupId == tableGroupId &&
+        _viewerId == viewerId &&
+        _token == token;
+    if (matches()) return;
     final inFlight = _connectInFlight;
     if (inFlight != null) {
       try {
@@ -61,11 +71,12 @@ class TableGroupChatRealtimeClient {
         // A cancelled or failed previous-group handshake must not prevent this
         // caller from establishing the requested group session below.
       }
-      if (_connected && _connectedTableGroupId == tableGroupId) return;
+      if (matches()) return;
     }
 
     final connectFuture = _connectInternal(
       tableGroupId: tableGroupId,
+      viewerId: viewerId,
       token: token,
     );
     _connectInFlight = connectFuture;
@@ -80,6 +91,7 @@ class TableGroupChatRealtimeClient {
 
   Future<void> _connectInternal({
     required String tableGroupId,
+    required String viewerId,
     required String token,
   }) async {
     final generation = _generation + 1;
@@ -135,7 +147,9 @@ class TableGroupChatRealtimeClient {
             try {
               _connected = true;
               _connectedTableGroupId = tableGroupId;
-              _bindSubscriptions(tableGroupId, generation);
+              _viewerId = viewerId;
+              _token = token;
+              _bindSubscriptions(tableGroupId, viewerId, generation);
               if (!_connectionController.isClosed) {
                 _connectionController.add(null);
               }
@@ -202,6 +216,8 @@ class TableGroupChatRealtimeClient {
   Future<void> disconnect() async {
     _generation += 1;
     _connected = false;
+    _viewerId = null;
+    _token = null;
     _connectedTableGroupId = null;
 
     final pending = _pendingConnect;
@@ -223,6 +239,7 @@ class TableGroupChatRealtimeClient {
   Future<void> dispose() async {
     await disconnect();
     await _messageController.close();
+    await _controls.close();
     await _connectionController.close();
     await _errorController.close();
   }
@@ -238,7 +255,11 @@ class TableGroupChatRealtimeClient {
     transport?.deactivate();
   }
 
-  void _bindSubscriptions(String tableGroupId, int generation) {
+  void _bindSubscriptions(
+    String tableGroupId,
+    String viewerId,
+    int generation,
+  ) {
     final transport = _transport;
     if (transport == null) return;
 
@@ -250,7 +271,7 @@ class TableGroupChatRealtimeClient {
     }
 
     transport.subscribe(
-      destination: StompDestinations.tableGroup(tableGroupId),
+      destination: StompDestinations.tableGroup(tableGroupId, viewerId),
       callback: (body) {
         if (!isCurrentConnection()) return;
         _onFrame(body, expectedTableGroupId: tableGroupId);
@@ -264,6 +285,18 @@ class TableGroupChatRealtimeClient {
       final decoded = jsonDecode(body);
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('Expected an object.');
+      }
+      if (decoded.containsKey('type')) {
+        if (decoded['tableGroupId'] != expectedTableGroupId) {
+          throw const FormatException('Table-group id mismatch.');
+        }
+        final change = switch (decoded['type']) {
+          'TABLE_VISIBILITY_CHANGED' => TableGroupRoomChange.visibility,
+          'BLOCKED_MEMBER_JOINED' => TableGroupRoomChange.membership,
+          _ => throw const FormatException('Unknown table-group event.'),
+        };
+        if (!_controls.isClosed) _controls.add(change);
+        return;
       }
       final message = TableGroupMessageModel.fromWireJson(decoded);
       if (message.tableGroupId != expectedTableGroupId) {
@@ -292,3 +325,5 @@ class TableGroupChatRealtimeClient {
     return 'http://$trimmed';
   }
 }
+
+enum TableGroupRoomChange { visibility, membership }

@@ -23,6 +23,7 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/co
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/theme/collab_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_action_widgets.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_discovery_widgets.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_management_widgets.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
@@ -124,6 +125,104 @@ void main() {
     expect(find.text('İlan kapanınca geçersizleşti'), findsOneWidget);
     await cubit.close();
   });
+
+  testWidgets(
+    'deleted applicant remains in history without phone, profile or contact actions',
+    (tester) async {
+      final listing = _listing('drums', ownedByMe: true);
+      final repository = _ManagementRepository(
+        incoming: [
+          _application(
+            'deleted',
+            listing: listing,
+            applicant: _deletedMusician,
+            phone: null,
+          ).copyWith(status: CollabApplicationStatus.withdrawnByApplicant),
+        ],
+      );
+      final cubit = CollabIncomingApplicationsCubit(repository);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        app(
+          CollabIncomingApplicationsScreen(
+            listingId: listing.id,
+            cubit: cubit,
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Başvuran geri çekti'), findsOneWidget);
+      expect(find.byIcon(Icons.phone_outlined), findsNothing);
+      expect(find.text('Kabul et'), findsNothing);
+      for (final label in ['Profil', 'Mesaj']) {
+        final action = find.widgetWithText(CollabCardAction, label);
+        expect(tester.widget<CollabCardAction>(action).onPressed, isNull);
+      }
+      await tester.tap(find.text('Silinmiş hesap'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'applicant sees a closed listing and a cancelled job after publisher deletion',
+    (tester) async {
+      final listing = _listing('drums', publisher: _deletedMusician).copyWith(
+        status: CollabListingStatus.closed,
+        closureReason: CollabClosureReason.ownerClosed,
+      );
+      final matched = _listing('piano', publisher: _deletedMusician).copyWith(
+        status: CollabListingStatus.closed,
+        closureReason: CollabClosureReason.matched,
+      );
+      final repository = _ManagementRepository(
+        outgoing: [
+          _application('mine', listing: listing, applicant: _me).copyWith(
+            status: CollabApplicationStatus.invalidatedByListingClosure,
+          ),
+        ],
+        jobs: [
+          _copyJob(
+            _job('matched', listing: matched),
+            status: CollabJobStatus.cancelled,
+          ),
+        ],
+      );
+      final applications = CollabMyApplicationsCubit(repository);
+      final jobs = CollabJobsCubit(repository);
+      addTearDown(applications.close);
+      addTearDown(jobs.close);
+      await tester.pumpWidget(
+        app(
+          CollabMyApplicationsScreen(
+            applicationsCubit: applications,
+            jobsCubit: jobs,
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('İlan kapanınca geçersizleşti'), findsOneWidget);
+      expect(find.text('Geri çek'), findsNothing);
+      await tester.tap(find.text('İşlerim'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('İptal edilen'));
+      await tester.pumpAndSettle();
+      expect(find.text('İptal edildi'), findsOneWidget);
+      expect(find.text('Silinmiş hesap'), findsOneWidget);
+      expect(find.text('İşi tamamladım'), findsNothing);
+      expect(
+        tester
+            .widget<CollabCardAction>(
+              find.widgetWithText(CollabCardAction, 'Mesaj'),
+            )
+            .onPressed,
+        isNull,
+      );
+    },
+  );
 
   testWidgets(
     'outgoing withdraw and bilateral completion use separate cubits',
@@ -796,6 +895,18 @@ const CollabActor _secondApplicant = CollabActor(
   completedJobCount: 8,
 );
 
+const CollabActor _deletedMusician = CollabActor(
+  actorId: 'former-actor',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'former-profile',
+  contactUserId: '',
+  displayName: 'Silinmiş hesap',
+  rating: 0,
+  reviewCount: 0,
+  completedJobCount: 0,
+  profileAvailable: false,
+);
+
 CollabActor _numberedApplicant(int index) => CollabActor(
   actorId: 'applicant-$index',
   profileType: CollabProfileKind.musician,
@@ -812,6 +923,7 @@ CollabListing _listing(
   String title = 'Bas gitarist aranıyor',
   bool ownedByMe = false,
   bool savedByMe = false,
+  CollabActor publisher = _publisher,
 }) => CollabListing(
   id: id,
   version: 1,
@@ -823,7 +935,7 @@ CollabListing _listing(
   city: const CollabCitySummary(id: 'city-34', name: 'İstanbul'),
   genres: const <String>['Rock'],
   feeStatus: CollabFeeStatus.unspecified,
-  publisher: _publisher,
+  publisher: publisher,
   ownedByMe: ownedByMe,
   appliedByMe: !ownedByMe,
   savedByMe: savedByMe,
@@ -834,12 +946,13 @@ CollabApplication _application(
   String id, {
   required CollabListing listing,
   required CollabActor applicant,
+  String? phone = '+90 555 111 22 33',
 }) => CollabApplication(
   id: id,
   version: 1,
   listing: listing,
   applicant: applicant,
-  phone: '+90 555 111 22 33',
+  phone: phone,
   message: 'Bu iş için uygunum ve detayları konuşmak isterim.',
   status: CollabApplicationStatus.pending,
   submittedAt: DateTime(2026, 8, 11, 12),
@@ -855,7 +968,7 @@ CollabJob _job(
   version: 1,
   status: completed ? CollabJobStatus.completed : CollabJobStatus.active,
   listing: listing,
-  publisher: _publisher,
+  publisher: listing.publisher,
   applicant: _me,
   publisherConfirmedCompletion: completed,
   applicantConfirmedCompletion: completed,

@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsFlag;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
@@ -29,6 +30,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_group_profile_draft.dart';
+import 'package:soundconnect_23_12_25codx/modules/user_block/data/user_block_repository.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
@@ -40,6 +42,7 @@ part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle2.d
 part 'table_group_detail_lifecycle_test_register_table_group_detail_lifecycle3.dart';
 part 'table_group_report_entry_cases.dart';
 part 'table_group_detail_overlay_cases.dart';
+part 'table_group_block_cases.dart';
 
 void main() {
   _registerTableGroupDetailLifecycle1();
@@ -47,6 +50,7 @@ void main() {
   _registerTableGroupDetailLifecycle3();
   _registerReportEntryCases();
   _registerTableRemovalOverlayCases();
+  _registerTableGroupBlockCases();
 }
 
 TableGroupMessage _expiringGameMessage({
@@ -150,6 +154,8 @@ TableGroup _group({
   String? description,
   String? venueName = 'Test Mekani',
   bool includeGuest = false,
+  bool ownerBlocked = false,
+  bool ownerArrivedLater = false,
   bool includePending = false,
   String pendingUsername = 'Pending User',
   int extraPendingCount = 0,
@@ -171,8 +177,11 @@ TableGroup _group({
     expiresAt: expiresAt,
     status: status,
     participants: <TableGroupParticipant>[
-      const TableGroupParticipant(
+      TableGroupParticipant(
         userId: 'owner',
+        blockedByMe: ownerBlocked,
+        blockedArrival: ownerArrivedLater,
+        applicationId: 'owner-membership',
         joinedAt: null,
         status: TableGroupParticipantStatus.accepted,
         joinNote: null,
@@ -228,6 +237,7 @@ class _DetailRepository implements TableGroupRepository {
   int chatCalls = 0;
   int kickCalls = 0;
   int joinCalls = 0;
+  List<String>? acknowledgedBlocks;
   int approveCalls = 0;
   int rejectCalls = 0;
   String? lastKickedParticipantId;
@@ -280,8 +290,10 @@ class _DetailRepository implements TableGroupRepository {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   }) async {
     joinCalls += 1;
+    acknowledgedBlocks = acknowledgedBlockedMemberIds;
     return const Result.success(null);
   }
 

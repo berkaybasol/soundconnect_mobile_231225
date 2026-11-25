@@ -81,6 +81,8 @@ class _Tokens extends Fake implements TokenStore {
 
 class _Realtime extends Fake implements TableGroupChatRealtimeClient {
   @override
+  Stream<TableGroupRoomChange> get changes => const Stream.empty();
+  @override
   Stream<TableGroupMessage> get messageStream => const Stream.empty();
   @override
   Stream<void> get connectionStream => const Stream.empty();

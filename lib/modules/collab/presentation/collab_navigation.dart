@@ -13,6 +13,7 @@ Future<void> openCollabActorProfile(
   BuildContext context,
   CollabActor actor,
 ) async {
+  if (!actor.canOpenProfile) return;
   switch (actor.profileType) {
     case CollabProfileKind.musician:
       await Navigator.of(context).pushNamed(

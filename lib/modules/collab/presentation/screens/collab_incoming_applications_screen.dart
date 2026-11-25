@@ -593,7 +593,9 @@ class _ApplicationCard extends StatelessWidget {
               CollabCardAction(
                 label: 'Profil',
                 icon: Icons.person_outline_rounded,
-                onPressed: busy ? null : onProfile,
+                onPressed: busy || !application.applicant.canOpenProfile
+                    ? null
+                    : onProfile,
               ),
               CollabCardAction(
                 label: 'Mesaj',

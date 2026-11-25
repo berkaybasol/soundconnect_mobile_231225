@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
@@ -15,9 +16,12 @@ import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
 import '../../../profile/presentation/screens/studio_listener_info_screen.dart';
 import '../../../studio/presentation/customer_reservations_screen.dart';
+import '../../data/google_auth_repository.dart';
+import '../../data/account_password_repository.dart';
 import '../../domain/username_policy.dart';
 import '../../domain/account_deletion_repository.dart';
 import 'listener_account_deletion_dialog.dart';
+import 'account_password_sheet.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -35,29 +39,98 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   String _currentUsername = '';
   bool _editingUsername = false;
   bool _deletingAccount = false;
+  bool _openingPassword = false;
 
-  Future<void> _deleteAccount() async {
+  Future<void> _changePassword(AuthSession expected, int revision) async {
     final sessions = serviceLocator<AuthSessionManager>();
-    final expected = sessions.session;
-    if (_deletingAccount || !canDeleteListenerAccount(expected)) return;
+    bool current() =>
+        mounted &&
+        sessions.credentialRevision == revision &&
+        sessions.session.token == expected.token &&
+        ModalRoute.of(context)?.isCurrent == true;
+    if (_openingPassword || !expected.isAuthenticated || !current()) return;
+    setState(() => _openingPassword = true);
+    try {
+      final repository = serviceLocator<AccountPasswordRepository>();
+      final result = await repository.provider(expected, revision);
+      if (!current()) return;
+      if (!result.isSuccess) {
+        _showMessage(
+          'Giriş yöntemi doğrulanamadı. Bağlantını kontrol edip tekrar dene.',
+        );
+        return;
+      }
+      if (result.data == AccountPasswordProvider.google) {
+        _showMessage(
+          'Bu hesaba Google ile giriş yapıyorsun.',
+          tone: AppSnackBarTone.info,
+        );
+        return;
+      }
+      setState(() => _openingPassword = false);
+      final renewed = await _showAccountSheet<AuthSession>(
+        (_) => AccountPasswordSheet(
+          repository: repository,
+          sessions: sessions,
+          session: expected,
+          revision: revision,
+        ),
+      );
+      if (mounted &&
+          renewed != null &&
+          sessions.session.token == renewed.token &&
+          sessions.credentialRevision == revision + 1) {
+        _showMessage('Şifren değiştirildi.', tone: AppSnackBarTone.success);
+      }
+    } finally {
+      if (mounted) setState(() => _openingPassword = false);
+    }
+  }
+
+  Future<void> _deleteAccount(AuthSession expected, int revision) async {
+    final sessions = serviceLocator<AuthSessionManager>();
+    if (_deletingAccount ||
+        !identical(sessions.session, expected) ||
+        sessions.credentialRevision != revision ||
+        accountDeletionProfile(expected) == null) {
+      return;
+    }
     setState(() => _deletingAccount = true);
-    final navigator = Navigator.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ListenerAccountDeletionDialog(
+    await _showAccountSheet<bool>(
+      (_) => AccountDeletionDialog(
         repository: serviceLocator<AccountDeletionRepository>(),
         sessions: sessions,
+        expectedSession: expected,
+        expectedRevision: revision,
+        chooseGoogleAccount: GoogleAuthRepository.supported
+            ? () => serviceLocator<GoogleAuthRepository>().chooseAccount()
+            : null,
       ),
     );
-    if (!mounted) return;
-    if (confirmed == true && identical(sessions.session, expected)) {
-      await sessions.logout();
-      if (navigator.mounted && !sessions.session.isAuthenticated) {
-        navigator.pushNamedAndRemoveUntil<void>(AppRoutes.login, (_) => false);
-      }
-    }
     if (mounted) setState(() => _deletingAccount = false);
+  }
+
+  Future<T?> _showAccountSheet<T>(WidgetBuilder builder) {
+    final theme = Theme.of(context);
+    return showModalBottomSheet<T>(
+      context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      showDragHandle: false,
+      constraints: const BoxConstraints(maxWidth: 560),
+      backgroundColor: theme.brightness == Brightness.dark
+          ? AppColors.originalDark.navBlue
+          : AppColors.lightPalette.navBlue,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: builder,
+    );
   }
 
   @override
@@ -172,6 +245,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         }
       },
       builder: (context, state) {
+        final sessions = serviceLocator<AuthSessionManager>();
+        final account = sessions.session;
+        final revision = sessions.credentialRevision;
+        final canDelete = accountDeletionProfile(account) != null;
         final isLoading =
             state.status == AuthStatus.loading &&
             state.action == AuthAction.updateUsername;
@@ -520,7 +597,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         if (_editingUsername)
                           Divider(color: Theme.of(context).dividerColor),
                         ListTile(
-                          key: const Key('account-settings-password-reminder'),
+                          key: const Key('account-settings-password'),
+                          onTap: account.isAuthenticated && !_openingPassword
+                              ? () => _changePassword(account, revision)
+                              : null,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 4,
                           ),
@@ -549,31 +629,14 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             'Şifre',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          subtitle: const Text(
-                            'Şifre değiştirme özelliği yakında',
-                          ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'Yakında',
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
+                          trailing: _openingPassword
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
-                            ),
-                          ),
+                                )
+                              : const Icon(Icons.chevron_right),
                         ),
                         const SizedBox(height: 22),
                         Padding(
@@ -594,13 +657,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                           key: const Key(
                             'account-settings-delete-account-reminder',
                           ),
-                          onTap:
-                              !_deletingAccount &&
-                                  canDeleteListenerAccount(
-                                    serviceLocator<AuthSessionManager>()
-                                        .session,
-                                  )
-                              ? _deleteAccount
+                          onTap: !_deletingAccount && canDelete
+                              ? () => _deleteAccount(account, revision)
                               : null,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 4,
@@ -626,19 +684,14 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            canDeleteListenerAccount(
-                                  serviceLocator<AuthSessionManager>().session,
-                                )
+                            canDelete
                                 ? 'Hesabını ve kişisel verilerini kalıcı olarak sil'
                                 : 'Hesap silme özelliği yakında',
                             style: TextStyle(
                               color: _dangerRed.withValues(alpha: 0.78),
                             ),
                           ),
-                          trailing:
-                              canDeleteListenerAccount(
-                                serviceLocator<AuthSessionManager>().session,
-                              )
+                          trailing: canDelete
                               ? const Icon(
                                   Icons.chevron_right,
                                   color: _dangerRed,

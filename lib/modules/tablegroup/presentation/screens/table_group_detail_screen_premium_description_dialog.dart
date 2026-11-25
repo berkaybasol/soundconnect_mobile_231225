@@ -188,11 +188,13 @@ class _PremiumConfirmationDialog extends StatelessWidget {
   final String title;
   final String message;
   final String confirmLabel;
+  final String cancelLabel;
 
   const _PremiumConfirmationDialog({
     required this.title,
     required this.message,
     required this.confirmLabel,
+    this.cancelLabel = 'Vazgeç',
   });
 
   @override
@@ -347,9 +349,9 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          'Vazgeç',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                        child: Text(
+                          cancelLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
@@ -437,19 +439,22 @@ class _JoinDialogSubmission {
 }
 
 class _PremiumJoinDialog extends StatefulWidget {
-  const _PremiumJoinDialog();
+  const _PremiumJoinDialog({required this.blocked, required this.initialNote});
+  final List<TableGroupParticipant> blocked;
+  final String initialNote;
 
   @override
   State<_PremiumJoinDialog> createState() => _PremiumJoinDialogState();
 }
 
 class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
-  final TextEditingController _noteController = TextEditingController();
+  late final TextEditingController _noteController;
   final FocusNode _noteFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    _noteController = TextEditingController(text: widget.initialNote);
     _noteFocusNode.addListener(_handleFocusChanged);
   }
 
@@ -565,7 +570,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'Masa sahibine kısa bir not bırakabilirsin.',
+                              widget.blocked.isEmpty
+                                  ? 'Masa sahibine kısa bir not bırakabilirsin.'
+                                  : 'Engellediğiniz ${widget.blocked.map(_blockedMemberName).join(', ')} da bu masada. Yine de katılmak istiyor musunuz?',
                               style: TextStyle(
                                 color: muted,
                                 fontSize: 12.5,
@@ -689,7 +696,7 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                       key: const Key('table_group_join_note_input'),
                       controller: _noteController,
                       focusNode: _noteFocusNode,
-                      autofocus: true,
+                      autofocus: widget.blocked.isEmpty,
                       maxLength: 256,
                       minLines: 3,
                       maxLines: 4,
@@ -758,9 +765,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text(
-                            'İptal',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                          child: Text(
+                            widget.blocked.isEmpty ? 'İptal' : 'Vazgeç',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),
                       ),
@@ -808,7 +815,10 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                                   height: 48,
                                   child: Center(
                                     child: Text(
-                                      'Gönder',
+                                      widget.blocked.isEmpty
+                                          ? 'Gönder'
+                                          : 'Katılma isteği gönder',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: AppColors.onAccent,
                                         fontWeight: FontWeight.w800,

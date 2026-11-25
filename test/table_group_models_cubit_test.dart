@@ -492,6 +492,7 @@ class _DeferredTableGroupRepository extends _TableGroupRepositoryFake {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   }) {
     lastJoinNote = note;
     return (_join ??= Completer<Result<void>>()).future;
@@ -600,6 +601,7 @@ class _TableGroupRepositoryFake implements TableGroupRepository {
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
     String? note,
+    List<String> acknowledgedBlockedMemberIds = const [],
   }) async {
     lastJoinNote = note;
     return joinResult;

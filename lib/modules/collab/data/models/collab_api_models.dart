@@ -32,6 +32,7 @@ class CollabActorModel extends CollabActor {
     required super.reviewCount,
     required super.completedJobCount,
     super.avatarUrl,
+    super.profileAvailable,
   });
 
   factory CollabActorModel.fromJson(Map<String, dynamic> json) =>
@@ -39,6 +40,9 @@ class CollabActorModel extends CollabActor {
         actorId: _requiredString(json, 'actorId'),
         profileType: _profileKind(json['profileType'], 'profileType'),
         sourceProfileId: _requiredString(json, 'sourceProfileId'),
+        profileAvailable:
+            !json.containsKey('profileAvailable') ||
+            _requiredBool(json, 'profileAvailable'),
         contactUserId: _nullableString(json['contactUserId']) ?? '',
         contactUsername: _nullableString(json['contactUsername']) ?? '',
         displayName: _requiredString(json, 'displayName'),

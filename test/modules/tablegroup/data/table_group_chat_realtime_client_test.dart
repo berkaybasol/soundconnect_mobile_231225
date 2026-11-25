@@ -9,6 +9,44 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/tab
 void main() {
   group('TableGroupChatRealtimeClient', () {
     test(
+      'a new viewer at the same table receives private updates on their own topic',
+      () async {
+        final harness = _TransportHarness([
+          _Activation.connect,
+          _Activation.connect,
+        ]);
+        final client = TableGroupChatRealtimeClient(
+          transportFactory: harness.create,
+        );
+        addTearDown(client.dispose);
+        await client.connect(
+          tableGroupId: 'table',
+          viewerId: 'deniz',
+          token: 'first',
+        );
+        final oldTransport = harness.latest;
+        await client.connect(
+          tableGroupId: 'table',
+          viewerId: 'ece',
+          token: 'second',
+        );
+        final received = <TableGroupRoomChange>[];
+        final sub = client.changes.listen(received.add);
+        addTearDown(sub.cancel);
+        final change = jsonEncode({
+          'type': 'BLOCKED_MEMBER_JOINED',
+          'tableGroupId': 'table',
+          'userId': 'member',
+          'applicationId': 'membership',
+        });
+        oldTransport.deliver('/topic/table-group.table.deniz', change);
+        harness.latest.deliver('/topic/table-group.table.ece', change);
+        await Future<void>.delayed(Duration.zero);
+        expect(received, [TableGroupRoomChange.membership]);
+      },
+    );
+
+    test(
       'reconnects, validates group identity, and reports connection state',
       () async {
         final harness = _TransportHarness(<_Activation>[_Activation.connect]);
@@ -22,13 +60,17 @@ void main() {
         );
         addTearDown(connectionSubscription.cancel);
 
-        await client.connect(tableGroupId: 'group-1', token: 'redacted');
+        await client.connect(
+          tableGroupId: 'group-1',
+          viewerId: 'viewer',
+          token: 'redacted',
+        );
         await Future<void>.delayed(Duration.zero);
         expect(connections, 1);
 
         final errorFuture = client.errorStream.first;
         harness.latest.deliver(
-          '/topic/table-group.group-1',
+          '/topic/table-group.group-1.viewer',
           _messageJson(tableGroupId: 'other-group'),
         );
         expect(
@@ -66,16 +108,24 @@ void main() {
         final subscription = client.messageStream.listen(received.add);
         addTearDown(subscription.cancel);
 
-        await client.connect(tableGroupId: 'group-1', token: 'token-1');
+        await client.connect(
+          tableGroupId: 'group-1',
+          viewerId: 'viewer',
+          token: 'token-1',
+        );
         final oldTransport = harness.latest;
-        await client.connect(tableGroupId: 'group-2', token: 'token-2');
+        await client.connect(
+          tableGroupId: 'group-2',
+          viewerId: 'viewer',
+          token: 'token-2',
+        );
 
         oldTransport.deliver(
-          '/topic/table-group.group-1',
+          '/topic/table-group.group-1.viewer',
           _messageJson(tableGroupId: 'group-1', messageId: 'stale'),
         );
         harness.latest.deliver(
-          '/topic/table-group.group-2',
+          '/topic/table-group.group-2.viewer',
           _messageJson(tableGroupId: 'group-2', messageId: 'current'),
         );
         await Future<void>.delayed(Duration.zero);
@@ -108,7 +158,11 @@ void main() {
         addTearDown(messageSubscription.cancel);
         addTearDown(connectionSubscription.cancel);
 
-        await client.connect(tableGroupId: 'group-1', token: 'token-1');
+        await client.connect(
+          tableGroupId: 'group-1',
+          viewerId: 'viewer',
+          token: 'token-1',
+        );
         await Future<void>.delayed(Duration.zero);
         final oldTransport = harness.latest;
 
@@ -121,7 +175,7 @@ void main() {
         oldTransport.config.onDisconnect();
         oldTransport.config.onSocketDone!.call();
         oldTransport.deliver(
-          '/topic/table-group.group-1',
+          '/topic/table-group.group-1.viewer',
           _messageJson(tableGroupId: 'group-1', messageId: 'stale'),
         );
         await Future<void>.delayed(Duration.zero);
@@ -148,6 +202,7 @@ void main() {
 
       final firstConnect = client.connect(
         tableGroupId: 'group-1',
+        viewerId: 'viewer',
         token: 'token-1',
       );
       final firstFailure = expectLater(
@@ -159,6 +214,7 @@ void main() {
       final disconnect = client.disconnect();
       final secondConnect = client.connect(
         tableGroupId: 'group-2',
+        viewerId: 'viewer',
         token: 'token-2',
       );
       await disconnect;
@@ -185,8 +241,16 @@ void main() {
       addTearDown(firstClient.dispose);
       addTearDown(secondClient.dispose);
 
-      await firstClient.connect(tableGroupId: 'group-a', token: 'token-a');
-      await secondClient.connect(tableGroupId: 'group-b', token: 'token-b');
+      await firstClient.connect(
+        tableGroupId: 'group-a',
+        viewerId: 'viewer',
+        token: 'token-a',
+      );
+      await secondClient.connect(
+        tableGroupId: 'group-b',
+        viewerId: 'viewer',
+        token: 'token-b',
+      );
       await secondClient.disconnect();
 
       expect(firstClient.isConnected, isTrue);

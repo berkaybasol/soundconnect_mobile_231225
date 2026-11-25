@@ -405,7 +405,7 @@ class _DetailViewState extends State<_DetailView> {
   Future<void> _openPublisherProfile(CollabActor actor) async {
     if (!mounted ||
         ModalRoute.of(context)?.isCurrent != true ||
-        actor.sourceProfileId.trim().isEmpty) {
+        !actor.canOpenProfile) {
       return;
     }
     final listing = context.read<CollabListingDetailCubit>().state.listing;
@@ -943,7 +943,7 @@ class _PublisherProfileLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context); // Rebuild palette colors when the theme changes.
-    final enabled = actor.sourceProfileId.trim().isNotEmpty;
+    final enabled = actor.canOpenProfile;
     return Semantics(
       button: enabled,
       label: '${actor.displayName} profilini aç',
@@ -1024,15 +1024,16 @@ class _OwnerActionsSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ListTile(
-            key: const ValueKey<String>('collab-owner-profile-action'),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: const Icon(Icons.account_circle_outlined),
-            title: const Text('Profili görüntüle'),
-            subtitle: const Text('Profil detayları ve DM seçenekleri'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).pop(_OwnerAction.profile),
-          ),
+          if (actor.canOpenProfile)
+            ListTile(
+              key: const ValueKey<String>('collab-owner-profile-action'),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: const Icon(Icons.account_circle_outlined),
+              title: const Text('Profili görüntüle'),
+              subtitle: const Text('Profil detayları ve DM seçenekleri'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).pop(_OwnerAction.profile),
+            ),
           ListTile(
             key: const ValueKey<String>('collab-owner-reviews-action'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),

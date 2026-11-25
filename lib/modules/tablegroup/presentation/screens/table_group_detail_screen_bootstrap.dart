@@ -21,11 +21,12 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       _currentUserId = await resolveCurrentUserId(_tokenStore);
       final detailLoaded = await _loadDetail(replaceScreenOnFailure: true);
       if (!detailLoaded || !mounted) return;
+      if (_hasActiveChatAccess) await _connectRealtime();
+      if (!mounted) return;
       if (_shouldRunChat) {
         await _loadMessages(reset: true, followLatest: true);
         if (!mounted || !_shouldRunChat) return;
         await _gameCubit.loadActive(exposeError: false);
-        await _connectRealtime();
       }
     } catch (_) {
       if (mounted) {
@@ -43,8 +44,11 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   Future<bool> _loadDetail({required bool replaceScreenOnFailure}) async {
+    final request = ++_detailRequest;
     final result = await _repository.getDetail(widget.args.tableGroupId);
-    if (!mounted) return false;
+    if (!mounted || !_sameTableSession || request != _detailRequest) {
+      return false;
+    }
     if (!result.isSuccess || result.data == null) {
       final message = result.error?.message ?? 'Masa detayi alinamadi';
       if (replaceScreenOnFailure) {
@@ -86,13 +90,14 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       }
     });
     _scheduleExpiryTimer();
+    if (hasActiveChatAccess) _scheduleArrivalWarning();
     if (closedWhileVisible) {
       _chatController.clear();
       _dismissTableOverlays();
       _handleExpiry();
     } else if (!shouldRunChat) {
       _gameCubit.clear();
-      unawaited(_realtimeClient.disconnect());
+      if (!hasActiveChatAccess) unawaited(_realtimeClient.disconnect());
     }
     return true;
   }
@@ -102,6 +107,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     bool followLatest = false,
   }) async {
     if (_chatLoading || !_shouldRunChat) return;
+    final generation = _visibilityGeneration;
     final loadCompleter = Completer<void>();
     _chatLoadCompleter = loadCompleter;
     final resetSnapshot = reset
@@ -133,7 +139,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
             page: targetPage,
             size: 30,
           );
-    if (!mounted) {
+    if (!mounted || generation != _visibilityGeneration || !_sameTableSession) {
       _finishChatLoad(loadCompleter);
       return;
     }
@@ -211,6 +217,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   void _onRealtimeMsg(TableGroupMessage message) {
+    if (!mounted || !_sameTableSession) return;
     // A report sheet can temporarily cover a notification-opened chat.
     final redactsVisibleMessage =
         message.deletedAt != null &&
@@ -219,7 +226,6 @@ extension _TableGroupDetailScreenStateBootstrapMethods
         message.tableGroupId != widget.args.tableGroupId) {
       return;
     }
-    if (!mounted) return;
     if (message.game != null) _gameCubit.acceptRealtimeMessage(message);
     final followLatest = _isNearLatest;
     _updateView(() {
@@ -259,7 +265,9 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   void _onGameState(TableGroupGameState state) {
-    if (!mounted) return;
+    if (!mounted || !_sameTableSession || !identical(state, _gameCubit.state)) {
+      return;
+    }
     final followLatest = _isNearLatest;
     final previousMessage = _gameState.message;
     final previousGame = _gameState.game;
@@ -288,11 +296,15 @@ extension _TableGroupDetailScreenStateBootstrapMethods
 
   void _onRealtimeConnected(void _) {
     if (!mounted ||
-        !_shouldRunChat ||
+        !_hasActiveChatAccess ||
+        !_sameTableSession ||
         _realtimeClient.connectedTableGroupId != widget.args.tableGroupId) {
       return;
     }
     final shouldReconcile = _realtimeError != null;
+    if (shouldReconcile && !_shouldRunChat) {
+      unawaited(_loadDetail(replaceScreenOnFailure: false));
+    }
     if (shouldReconcile && _shouldRunChat) {
       _queueReconnectReconciliation();
     } else {
@@ -330,7 +342,11 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   void _onRealtimeError(RealtimeClientError error) {
-    if (!mounted || !_shouldRunChat) return;
+    if (!mounted || !_hasActiveChatAccess || !_sameTableSession) return;
+    if (error.type == RealtimeClientErrorType.disconnected && _showChat) {
+      // A block may have changed while the viewer's subscription was offline.
+      _discardChatProjection();
+    }
     _updateView(() {
       _realtimeError = switch (error.type) {
         RealtimeClientErrorType.invalidPayload =>
@@ -345,9 +361,17 @@ extension _TableGroupDetailScreenStateBootstrapMethods
   }
 
   Future<void> _connectRealtime() async {
-    if (_connectingRealtime || !_shouldRunChat) return;
+    if (_connectingRealtime || !_hasActiveChatAccess || !_sameTableSession) {
+      return;
+    }
     final token = await readAuthToken(_tokenStore);
-    if (!mounted || !_shouldRunChat) return;
+    final viewerId = _currentUserId;
+    if (!mounted ||
+        !_hasActiveChatAccess ||
+        !_sameTableSession ||
+        viewerId == null) {
+      return;
+    }
     if (token == null || token.trim().isEmpty) {
       _updateView(() {
         _realtimeError = 'Canli sohbet icin oturum bilgisi bulunamadi.';
@@ -358,10 +382,11 @@ extension _TableGroupDetailScreenStateBootstrapMethods
     try {
       await _realtimeClient.connect(
         tableGroupId: widget.args.tableGroupId,
+        viewerId: viewerId,
         token: token,
       );
       if (!mounted) return;
-      if (!_shouldRunChat) {
+      if (!_hasActiveChatAccess || !_sameTableSession) {
         await _realtimeClient.disconnect();
         return;
       }
@@ -404,19 +429,27 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       return;
     }
     if (_bootstrapInFlight != null || _group == null) return;
+    if (_showChat && _hasActiveChatAccess) _discardChatProjection();
+    final request = _detailRequest + 1;
     final detailLoaded = await _loadDetail(replaceScreenOnFailure: false);
-    if (!detailLoaded || !mounted || !_shouldRunChat) {
+    if (!mounted || request != _detailRequest) return;
+    if (!detailLoaded ||
+        !mounted ||
+        !_hasActiveChatAccess ||
+        !_sameTableSession) {
       await _realtimeClient.disconnect();
       return;
     }
+    if (!_shouldRunChat) {
+      await _connectRealtime();
+      return;
+    }
+    await _connectRealtime();
+    if (!mounted || !_shouldRunChat) return;
     final followLatest = _isNearLatest;
     await _loadMessages(reset: true, followLatest: followLatest);
     if (!mounted || !_shouldRunChat) return;
     await _gameCubit.loadActive(exposeError: false);
-    if (!_realtimeClient.isConnected ||
-        _realtimeClient.connectedTableGroupId != widget.args.tableGroupId) {
-      await _connectRealtime();
-    }
   }
 
   bool get _isNearLatest {
@@ -464,7 +497,18 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       _shareSession?.userId == _currentUserId;
 
   void _updateProfileShareSession() {
-    if (mounted) _updateView(() {});
+    if (!mounted) return;
+    if (!_sameTableSession) {
+      _dismissTableOverlays();
+      _discardChatProjection();
+      unawaited(_realtimeClient.disconnect());
+      _updateView(() {
+        _group = null;
+        _error = 'Oturum değişti. Masayı yeniden aç.';
+      });
+      return;
+    }
+    _updateView(() {});
   }
 
   Future<void> _openProfileDraft() async {
@@ -509,6 +553,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
 
   bool get _shouldRunChat =>
       _showChat &&
+      _sameTableSession &&
       _hasActiveChatAccess &&
       (widget.args.notificationTarget == null ||
           (_notificationSessionCurrent &&

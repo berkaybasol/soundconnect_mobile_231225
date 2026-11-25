@@ -229,7 +229,7 @@ void _registerTableGroupDetailLifecycle3() {
     await tester.pump();
     await tester.pump();
 
-    transport.latest!.deliver('/topic/table-group.g-1', '[]');
+    transport.latest!.deliver('/topic/table-group.g-1.owner', '[]');
     await tester.pump();
     expect(
       find.text('Canli sohbetten gecersiz bir mesaj alindi.'),
@@ -237,7 +237,7 @@ void _registerTableGroupDetailLifecycle3() {
     );
 
     transport.latest!.deliver(
-      '/topic/table-group.g-1',
+      '/topic/table-group.g-1.owner',
       jsonEncode(<String, dynamic>{
         'messageId': 'valid-after-invalid',
         'tableGroupId': 'g-1',
@@ -291,7 +291,7 @@ void _registerTableGroupDetailLifecycle3() {
     await tester.pump();
     expect(repository.chatCalls, 1);
 
-    transport.latest!.deliver('/topic/table-group.g-1', '[]');
+    transport.latest!.deliver('/topic/table-group.g-1.owner', '[]');
     await tester.pump();
     expect(
       find.text('Canli sohbetten gecersiz bir mesaj alindi.'),

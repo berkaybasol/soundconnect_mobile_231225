@@ -7,8 +7,9 @@ class StudioManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
-    return StudioListenerAccessGate(builder: _buildPanel);
+    return AppSurfaceThemeScope(
+      child: StudioListenerAccessGate(builder: _buildPanel),
+    );
   }
 
   Widget _buildPanel(BuildContext context) {

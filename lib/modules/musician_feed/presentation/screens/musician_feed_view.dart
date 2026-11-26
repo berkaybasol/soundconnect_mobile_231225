@@ -5,12 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
 import '../../../analytics/data/analytics_tracker.dart';
-import '../../../engagement/data/engagement_repository_impl.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/domain/engagement_repository.dart';
@@ -141,14 +139,19 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
                 }
                 final item = state.items[index];
                 final pending = state.pendingItemIds.contains(item.id);
-                return AnalyticsExposure(
+                final cubit = context.read<MusicianFeedCubit>();
+                return AnalyticsExposure.whenEnabled(
+                  enabled:
+                      cubit.telemetryEnabled ||
+                      (item.payload is AnnouncementFeedPayload &&
+                          serviceLocator.isRegistered<AnalyticsTracker>()),
                   key: ValueKey(
                     'musician-feed-exposure-${state.feedSessionId}-'
                     '${item.position}-${item.id}',
                   ),
                   onExposed: () {
                     unawaited(
-                      context.read<MusicianFeedCubit>().recordEvent(
+                      cubit.recordEvent(
                         item,
                         MusicianFeedTelemetryEventType.impression,
                       ),
@@ -271,16 +274,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       showDragHandle: true,
       backgroundColor: Theme.of(feedContext).colorScheme.surfaceContainerHigh,
       builder: (_) => BlocProvider(
-        create: (_) => engagement.targetType == 'ANNOUNCEMENT'
-            ? CommentThreadCubit(
-                EngagementRepositoryImpl(
-                  serviceLocator<ApiClient>(),
-                  sessions: serviceLocator<AuthSessionManager>(),
-                  announcementSource: 'FEED',
-                ),
-                sessions: serviceLocator<AuthSessionManager>(),
-              )
-            : serviceLocator<CommentThreadCubit>(),
+        create: (_) => serviceLocator<CommentThreadCubit>(),
         child: CommentThreadSheet(
           targetType: engagement.targetType,
           targetId: engagement.targetId,

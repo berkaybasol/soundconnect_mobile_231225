@@ -10,8 +10,10 @@ import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/push/push_coordinator.dart';
 import '../../../../core/push/push_settings_screen.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../analytics/presentation/widgets/analytics_preference_entry.dart';
 import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
 import '../../../profile/presentation/screens/studio_listener_info_screen.dart';
@@ -218,8 +220,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildSettings);
+
+  Widget _buildSettings(BuildContext context) {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.updateUsername) return;
@@ -318,9 +322,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                               ),
                             ),
                           ),
-                          Divider(color: Theme.of(context).dividerColor),
-                          const SizedBox(height: 12),
                         ],
+                        const MemberAnalyticsPreferenceTile(),
+                        Divider(color: Theme.of(context).dividerColor),
+                        const SizedBox(height: 12),
                         ListenableBuilder(
                           listenable: serviceLocator<AuthSessionManager>(),
                           builder: (context, _) {

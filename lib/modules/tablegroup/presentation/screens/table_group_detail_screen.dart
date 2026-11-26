@@ -1,5 +1,6 @@
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -359,6 +360,15 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     final description = _tableDescription(group);
     final showOverview =
         group != null && _isSessionActive && (!_isAccepted || !_showChat);
+    SectionNavigation.mark(
+      context,
+      sectionView(
+        UsageSection.tables,
+        table: !showOverview && _isSessionActive && _isAccepted && !_loading
+            ? TableView.chat
+            : TableView.preview,
+      ),
+    );
     final showMoreMenu =
         group != null &&
         (showOverview || (_isSessionActive && (_isOwner || _isAccepted)));

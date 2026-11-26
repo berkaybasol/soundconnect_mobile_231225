@@ -7,6 +7,9 @@ import 'backstage_palette.dart';
 class AppSurfaceThemeScope extends StatelessWidget {
   const AppSurfaceThemeScope({required this.child, super.key});
 
+  AppSurfaceThemeScope.builder({required WidgetBuilder builder, super.key})
+    : child = Builder(builder: builder);
+
   final Widget child;
 
   @override
@@ -96,9 +99,19 @@ ThemeData appSurfaceTheme(ThemeData base) {
 }
 
 /// Raised dark cards keep their existing white surface in the light theme.
-Color appCardSurface(BuildContext context) {
+Color appCardSurface(BuildContext context, {bool darkenBackground = false}) {
   final theme = Theme.of(context);
-  return theme.brightness == Brightness.dark
-      ? theme.colorScheme.surfaceContainer
-      : theme.colorScheme.surface;
+  if (theme.brightness != Brightness.dark) return theme.colorScheme.surface;
+  return darkenBackground
+      ? appInsetSurface(theme)
+      : theme.colorScheme.surfaceContainer;
 }
+
+/// The inset surface used by the discovery date selector and profile menus.
+Color appInsetSurface(ThemeData theme) => theme.brightness == Brightness.dark
+    ? Color.lerp(
+        theme.colorScheme.surfaceContainer,
+        theme.scaffoldBackgroundColor,
+        .45,
+      )!
+    : theme.colorScheme.surface;

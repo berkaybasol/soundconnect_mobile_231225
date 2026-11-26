@@ -4,13 +4,17 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/push/push_coordinator.dart';
 import '../../../../core/push/push_settings_screen.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildSettings);
+
+  Widget _buildSettings(BuildContext context) {
     return AppScaffold(
       title: 'Ayarlar',
       child: Align(

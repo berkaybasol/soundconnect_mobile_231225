@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_surface_theme.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
@@ -81,18 +82,26 @@ class SupportScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildSupport);
+
+  Widget _buildSupport(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.navBlueDeep,
-              Theme.of(context).colorScheme.surfaceContainer,
-            ],
-          ),
+          color: dark ? theme.scaffoldBackgroundColor : null,
+          gradient: dark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.navBlueDeep,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
+                ),
         ),
         child: SafeArea(
           child: Padding(
@@ -103,15 +112,15 @@ class SupportScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
+                    color: dark
+                        ? theme.colorScheme.surfaceContainer
+                        : theme.colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.isLight
                             ? AppColors.avatarShadow.withValues(alpha: 0.16)
-                            : AppColors.coralAlt.withValues(alpha: 0.35),
+                            : AppColors.coralAlt.withValues(alpha: 0.10),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),

@@ -12,6 +12,8 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_c
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/presentation/cubit/location_cubit.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_text_field.dart';
 
@@ -35,7 +37,7 @@ void main() {
     await locationCubit.close();
   });
 
-  Widget app({bool includeSourceRoute = false}) {
+  Widget app({bool includeSourceRoute = false, ThemeData? theme}) {
     Widget registration() => MultiBlocProvider(
       providers: [
         BlocProvider<AuthCubit>.value(value: authCubit),
@@ -45,6 +47,7 @@ void main() {
     );
 
     return MaterialApp(
+      theme: theme,
       routes: <String, WidgetBuilder>{
         AppRoutes.otpVerify: (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
@@ -72,10 +75,13 @@ void main() {
     tester,
   ) async {
     _useLargeSurface(tester);
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(app(theme: AppTheme.navy));
     await tester.pump();
 
     expect(find.text('Kaydol'), findsOneWidget);
+    final pageTheme = Theme.of(tester.element(find.byType(Scaffold)));
+    expect(pageTheme.scaffoldBackgroundColor, BackstagePalette.canvas);
+    expect(pageTheme.inputDecorationTheme.fillColor, BackstagePalette.input);
     expect(find.byType(TextField).hitTestable(), findsOneWidget);
     expect(locationRepository.citiesCalls, 0);
 

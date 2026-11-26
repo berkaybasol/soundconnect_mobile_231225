@@ -1,6 +1,34 @@
 part of 'dio_api_client_contract_test.dart';
 
 void _registerDioApiClientTransportContract1() {
+  test(
+    'withdrawal cancels a live guest request waiting for its identity check',
+    () async {
+      final adapter = _RecordingHttpClientAdapter(
+        (_) => ResponseBody.fromString('', 204),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final tokens = _BarrierTokenStore(null)..armBarrier();
+      final api = DioApiClient(dio: dio, tokenStore: tokens);
+      final cancelled = Completer<void>();
+      final request = api.request<void>(
+        ApiHttpMethod.post,
+        '/api/v1/analytics/live-activity/guest',
+        requestContext: ApiRequestContext(
+          requireGuestSession: true,
+          cancelOn: cancelled.future,
+        ),
+        decoder: (_) {},
+      );
+      final failure = expectLater(request, throwsA(isA<ApiException>()));
+      await tokens.readStarted.future;
+      cancelled.complete();
+      tokens.releaseRead();
+      await failure;
+      expect(adapter.requests, isEmpty);
+    },
+  );
   for (final legacy in [false, true]) {
     test(
       'studio login only shows the explicit applicant fields, legacy=$legacy',

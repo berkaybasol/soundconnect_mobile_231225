@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/auth/auth_session.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/diagnostics/crash_reporting.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../data/system_health_repository.dart';
 import '../../domain/system_health.dart';
+import '../../domain/admin_user_directory.dart';
+import '../widgets/admin_dashboard_tiles.dart';
+import '../widgets/admin_panel_frame.dart';
 import '../widgets/admin_visual_theme.dart';
 
 class SystemHealthScreen extends StatefulWidget {
@@ -17,10 +21,12 @@ class SystemHealthScreen extends StatefulWidget {
     required this.repository,
     required this.sessions,
     this.embedded = false,
+    this.frame,
   });
   final SystemHealthRepository repository;
   final AuthSessionManager sessions;
   final bool embedded;
+  final AdminSubpageFrame? frame;
 
   @override
   State<SystemHealthScreen> createState() => _SystemHealthScreenState();
@@ -209,6 +215,24 @@ class _SystemHealthScreenState extends State<SystemHealthScreen>
                               ),
                               refresh,
                             ],
+                          ),
+                        ),
+                      if (canReadAdminUsers(widget.sessions.session))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: AdminModuleTile(
+                              entryKey: const Key('admin-statistics-entry'),
+                              title: 'İstatistikler',
+                              description: 'Canlı kullanım ve aylık rapor',
+                              icon: Icons.bar_chart_rounded,
+                              accent: AppColors.accentText,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.adminStatistics,
+                                arguments: widget.frame,
+                              ),
+                            ),
                           ),
                         ),
                       AdminSectionCard(

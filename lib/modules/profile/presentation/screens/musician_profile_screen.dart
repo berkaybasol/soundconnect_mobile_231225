@@ -5,6 +5,7 @@ import 'application_paging_footer.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:audio_service/audio_service.dart';
@@ -33,6 +34,7 @@ import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
@@ -101,6 +103,10 @@ class MusicianProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SectionNavigation.mark(
+      context,
+      SectionNavigation.profileView(ViewedProfile.musician, true),
+    );
     Theme.of(context);
     return MultiBlocProvider(
       providers: [

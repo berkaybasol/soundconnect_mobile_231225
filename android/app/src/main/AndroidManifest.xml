@@ -5,11 +5,19 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
+    <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE" tools:node="remove" />
     <application
+        android:appComponentFactory=".AnalyticsComponentFactory"
+        tools:replace="android:appComponentFactory"
         android:label="Soundconnect"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_soundconnect"
         android:roundIcon="@mipmap/ic_soundconnect_round"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="false">
         <!-- Keep the portrait layout in Android 16 large-screen compatibility mode. -->
         <property android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
@@ -33,6 +41,22 @@
             android:enabled="${soundconnectPushEnabled}" />
         <receiver android:name=".PushNotificationDismissReceiver" android:exported="false" />
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+        <!-- FCM remains available. Only the consent-validated foreground channel
+             may initialize Analytics. The factory guards subsequent upload workers. -->
+        <service android:name="com.google.firebase.components.ComponentDiscoveryService">
+            <meta-data android:name="com.google.firebase.components:com.google.firebase.analytics.connector.internal.AnalyticsConnectorRegistrar" tools:node="remove" />
+        </service>
+        <receiver android:name="com.google.android.gms.measurement.AppMeasurementReceiver" android:enabled="@bool/analytics_workers_supported" tools:replace="android:enabled" />
+        <service android:name="com.google.android.gms.measurement.AppMeasurementService" android:enabled="@bool/analytics_workers_supported" tools:replace="android:enabled" />
+        <service android:name="com.google.android.gms.measurement.AppMeasurementJobService" android:enabled="@bool/analytics_workers_supported" tools:replace="android:enabled" />
+        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="${soundconnectGa4Deactivated}" />
+        <meta-data android:name="google_analytics_default_allow_analytics_storage" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_storage" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_user_data" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_ssaid_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_automatic_screen_reporting_enabled" android:value="false" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="soundconnect_notifications" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />
         <provider

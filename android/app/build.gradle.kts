@@ -1,6 +1,8 @@
 import java.io.FileInputStream
+import java.net.URI
 import java.util.Base64
 import java.util.Properties
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -54,14 +56,62 @@ if (warmTestValue != null && warmTestValue !in setOf("true", "false")) {
     throw GradleException("soundconnectBridgeHarness accepts only true or false.")
 }
 val isBridgeHarness = warmTestValue == "true"
+val ga4Defines = decodedDartDefines.filter { it.substringBefore('=') == "SOUNDCONNECT_GA4_PROJECT" }
+val ga4Project = ga4Defines.singleOrNull()?.substringAfter('=', "").orEmpty()
+val analyticsEnabled = ga4Project.isNotEmpty()
+if (ga4Defines.size > 1) throw GradleException("Specify one GA4 project.")
+val liveDefines = decodedDartDefines.filter { it.substringBefore('=') == "SOUNDCONNECT_LIVE_ANALYTICS_ENABLED" }
+val liveValue = liveDefines.singleOrNull()?.substringAfter('=', "")
+if (liveDefines.size > 1 || (liveValue != null && liveValue !in setOf("true", "false"))) {
+    throw GradleException("SOUNDCONNECT_LIVE_ANALYTICS_ENABLED accepts one true or false value.")
+}
+if (analyticsEnabled || liveValue == "true") {
+    val api = decodedDartDefines.singleOrNull { it.substringBefore('=') == "SOUNDCONNECT_BASE_URL" }
+        ?.substringAfter('=')?.trimEnd('/')
+    val stagingApi = "https://api-staging.soundconnect.com.tr"
+    if (isPreview || isBridgeHarness || diagnosticsEnvironment !in setOf("staging", "production")) {
+        throw GradleException("Usage measurement requires an explicit staging or production product build.")
+    }
+    if (diagnosticsEnvironment == "staging") {
+        if (api != stagingApi || (analyticsEnabled && ga4Project != "soundconnect-fa50e")) {
+            throw GradleException("Usage measurement requires the approved staging API and Firebase project.")
+        }
+    } else {
+        val approvedApi = providers.environmentVariable("SOUNDCONNECT_PRODUCTION_API_ORIGIN").orNull
+        val origin = api?.let { runCatching { URI(it) }.getOrNull() }
+        if (origin == null || origin.scheme != "https" || origin.host.isNullOrEmpty() ||
+            origin.host.equals(URI(stagingApi).host, ignoreCase = true) || origin.rawUserInfo != null ||
+            !origin.rawPath.isNullOrEmpty() || origin.rawQuery != null || origin.rawFragment != null ||
+            api != approvedApi) {
+            throw GradleException("Usage measurement requires the configured production HTTPS API origin.")
+        }
+        if (analyticsEnabled && ga4Project != providers.environmentVariable("SOUNDCONNECT_PRODUCTION_GA4_PROJECT").orNull) {
+            throw GradleException("GA4 requires the configured production Firebase project.")
+        }
+    }
+    if (analyticsEnabled) {
+        val variant = if (diagnosticsEnvironment == "staging") "debug" else "release"
+        val config = file("src/$variant/google-services.json").takeIf { it.isFile } ?: file("google-services.json")
+        val parsed = if (config.isFile) JsonSlurper().parse(config) as? Map<*, *> else null
+        if ((parsed?.get("project_info") as? Map<*, *>)?.get("project_id") != ga4Project) {
+            throw GradleException("The native Firebase configuration must match SOUNDCONNECT_GA4_PROJECT.")
+        }
+    }
+    gradle.taskGraph.whenReady {
+        val forbidden = if (diagnosticsEnvironment == "staging") listOf("release", "profile") else listOf("debug", "profile")
+        if (allTasks.any { task -> task.project == project && forbidden.any { task.name.contains(it, ignoreCase = true) } }) {
+            throw GradleException("Usage measurement requires a staging debug build or a production release build.")
+        }
+    }
+}
 if (pushEnabled && isPreview) {
     throw GradleException("Push is unavailable in offline preview builds.")
 }
 if (diagnosticsEnabled && isBridgeHarness) {
     throw GradleException("Bridge harness must not send diagnostic reports.")
 }
-if (pushEnabled && !isBridgeHarness) {
-    if (!file("google-services.json").isFile) {
+if ((pushEnabled || analyticsEnabled) && !isBridgeHarness) {
+    if (!file("google-services.json").isFile && !analyticsEnabled) {
         throw GradleException("Push requires android/app/google-services.json for this Firebase environment.")
     }
     apply(plugin = "com.google.gms.google-services")
@@ -165,6 +215,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Dart, native receivers and persisted notification work share one opt-in.
         manifestPlaceholders["soundconnectPushEnabled"] = pushEnabled.toString()
+        manifestPlaceholders["soundconnectGa4Deactivated"] = (!analyticsEnabled).toString()
+        resValue("bool", "soundconnect_ga4_staging_enabled", analyticsEnabled.toString())
         resValue("bool", "soundconnect_push_enabled", pushEnabled.toString())
         // Match the backend's public CDN. No arbitrary avatar URL is fetched by native push.
         manifestPlaceholders["pushAvatarHost"] = providers.gradleProperty("dart-defines").orNull.orEmpty()
@@ -256,6 +308,7 @@ dependencies {
     // Native DM renderer uses the same Firebase BOM as the locked FlutterFire SDK.
     implementation(platform("com.google.firebase:firebase-bom:${rootProject.project(":firebase_core").property("FirebaseSDKVersion")}"))
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-analytics")
     implementation("androidx.core:core:1.17.0")
     implementation("androidx.work:work-runtime:$workManagerVersion") {
         version { strictly(workManagerVersion) }

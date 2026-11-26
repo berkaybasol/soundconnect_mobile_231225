@@ -353,9 +353,7 @@ void _registerMusicianFeedCubit1() {
 
     feedback.complete(const Result.success(null));
     expect(await hiding, isTrue);
-    expect(feed.eventCalls, [
-      (token: 'delivery-token-item', type: MusicianFeedTelemetryEventType.hide),
-    ]);
+    expect(feed.eventCalls, isEmpty);
     feed.responses.add(
       Future.value(Result.success(_itemsPage([_trackItem('item')]))),
     );
@@ -533,6 +531,7 @@ void _registerMusicianFeedCubit1() {
     final cubit = MusicianFeedCubit(
       feed,
       _EngagementRepository(),
+      eventIdFactory: const Uuid().v4,
       collabRepository: _CollabRepository(),
       followRepository: _FollowRepository(),
       bandFollowRepository: _BandFollowRepository(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
@@ -81,6 +82,7 @@ Future<void> openOverthinkingSource(
     comments = sourceComments;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
+        settings: const SectionRouteSettings(UsageSection.overthinking),
         builder: (_) => MultiBlocProvider(
           providers: [
             BlocProvider.value(value: sourcePosts),

@@ -82,7 +82,11 @@ class _VideoReelScreenState extends State<VideoReelScreen>
   void _playbackEvent(BetterPlayerEvent event) {
     if (!mounted || _disposing) return;
     if (widget.isPlaybackAllowed?.call() == false) {
-      _checkAccess();
+      // BetterPlayer is iterating its listeners. Release the controller after
+      // this event returns, even when a route is being removed.
+      scheduleMicrotask(() {
+        if (mounted && !_disposing) _checkAccess();
+      });
       return;
     }
     if (event.betterPlayerEventType == BetterPlayerEventType.exception) {
@@ -97,6 +101,10 @@ class _VideoReelScreenState extends State<VideoReelScreen>
     // this State is still inside initState.
     if (event.betterPlayerEventType != BetterPlayerEventType.progress &&
         event.betterPlayerEventType != BetterPlayerEventType.finished) {
+      return;
+    }
+    if (widget.onPlaybackStarted == null &&
+        widget.onPlaybackCompleted == null) {
       return;
     }
     final lifecycle = WidgetsBinding.instance.lifecycleState;

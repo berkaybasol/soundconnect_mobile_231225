@@ -22,10 +22,10 @@ class GoogleAuthRepository {
   Future<String?> chooseAccount() async {
     final sdk = GoogleSignIn.instance;
     const webClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-    // The Android Gradle project imports google-services.json only for push builds.
-    const usesGoogleServices = bool.fromEnvironment(
-      'SOUNDCONNECT_PUSH_ENABLED',
-    );
+    // Either native integration installs the Android Google Services resources.
+    const usesGoogleServices =
+        bool.fromEnvironment('SOUNDCONNECT_PUSH_ENABLED') ||
+        String.fromEnvironment('SOUNDCONNECT_GA4_PROJECT') != '';
     if (webClientId.isEmpty && !usesGoogleServices) {
       throw ApiException(
         const AppError(code: 'google_configuration', message: ''),

@@ -406,31 +406,37 @@ class _GuestLockFooter extends StatelessWidget {
         color: AppColors.navBlueDeep,
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.of(context).pushNamed(AppRoutes.login);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onSurface,
-                side: BorderSide(color: Theme.of(context).dividerColor),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(AppRoutes.login);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    side: BorderSide(color: Theme.of(context).dividerColor),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Giriş Yap'),
+                ),
               ),
-              child: const Text('Giriş Yap'),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GuestAccessActionButton(
+                  label: 'Üye Ol',
+                  backgroundColor: AppColors.navBlueDeep,
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(AppRoutes.register);
+                  },
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: GuestAccessActionButton(
-              label: 'Üye Ol',
-              backgroundColor: AppColors.navBlueDeep,
-              onPressed: () {
-                Navigator.of(context).pushNamed(AppRoutes.register);
-              },
-            ),
-          ),
+          const GuestAnalyticsPreferenceEntry(),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/theme/app_surface_theme.dart';
 
 import '../auth/auth_session_manager.dart';
 import '../di/service_locator.dart';
@@ -104,7 +105,10 @@ class _PushSettingsScreenState extends State<PushSettingsScreen>
   };
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildSettings);
+
+  Widget _buildSettings(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Bildirim ayarları')),
     body: ListenableBuilder(
       listenable: _push,

@@ -259,6 +259,7 @@ void _registerMusicianFeedContract5() {
       final cubit = MusicianFeedCubit(
         feed,
         _EngagementRepository(),
+        eventIdFactory: const Uuid().v4,
         collabRepository: _CollabRepository(),
         followRepository: _FollowRepository(),
         bandFollowRepository: _BandFollowRepository(),

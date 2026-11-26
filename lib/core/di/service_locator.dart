@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:get_it/get_it.dart';
 import '../push/firebase_push_provider.dart';
+import '../network/network_config.dart';
 import '../push/push_coordinator.dart';
 import '../push/push_device_api.dart';
 import '../push/push_delivery_api.dart';
@@ -16,10 +17,12 @@ import '../../modules/admin/data/content_report_admin_repository.dart';
 import '../../modules/admin/data/admin_user_directory_repository.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
-import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
-import '../../modules/analytics/data/analytics_tracker.dart';
+import '../../modules/analytics/data/analytics_consent_controller.dart';
+import '../../modules/analytics/data/analytics_consent_store.dart';
+import '../../modules/analytics/data/analytics_live_activity.dart';
+import '../../modules/analytics/data/analytics_measurement.dart';
+import '../../modules/analytics/data/first_week_measurement.dart';
 import '../../modules/analytics/data/venue_analytics_repository_impl.dart';
-import '../../modules/analytics/domain/analytics_collection_repository.dart';
 import '../../modules/analytics/domain/venue_analytics_repository.dart';
 import '../../modules/event_audience/data/event_audience_repository_impl.dart';
 import '../../modules/event_audience/domain/event_audience_repository.dart';
@@ -232,6 +235,8 @@ void setupDependencies() {
       () => DioApiClient(
         tokenStore: serviceLocator<TokenStore>(),
         sessionManager: serviceLocator<AuthSessionManager>(),
+        onProductMutation: () =>
+            serviceLocator<AnalyticsMeasurement>().claimFirstAction(),
       ),
     )
     ..registerLazySingleton<MusicianFeedReportAdminRepository>(
@@ -240,15 +245,32 @@ void setupDependencies() {
         serviceLocator<AuthSessionManager>(),
       ),
     )
-    ..registerLazySingleton<AnalyticsCollectionRepository>(
-      () => AnalyticsCollectionRepositoryImpl(serviceLocator<ApiClient>()),
-    )
-    ..registerLazySingleton<AnalyticsTracker>(
-      () => AnalyticsTracker(
-        repository: serviceLocator<AnalyticsCollectionRepository>(),
-        sessionManager: serviceLocator<AuthSessionManager>(),
+    // The previous event/venue observation service has its own data purpose.
+    // A GA4 choice does not authorize a separate first-party observation.
+    ..registerLazySingleton<AnalyticsMeasurement>(
+      () => AnalyticsMeasurement(
+        firstWeek: FirstWeekMeasurement(
+          serviceLocator<ApiClient>(),
+          serviceLocator<AuthSessionManager>(),
+        ),
       ),
-      dispose: (tracker) => tracker.dispose(),
+    )
+    ..registerLazySingleton<AnalyticsConsentController>(
+      () => AnalyticsConsentController(
+        serviceLocator<AuthSessionManager>(),
+        AnalyticsConsentStore(
+          serviceLocator<ApiClient>(),
+          environment: NetworkConfig.baseUrl,
+        ),
+        serviceLocator<AnalyticsMeasurement>(),
+        liveActivity: AnalyticsLiveActivity.enabled
+            ? AnalyticsLiveActivity(
+                serviceLocator<ApiClient>(),
+                serviceLocator<AuthSessionManager>(),
+              )
+            : null,
+      ),
+      dispose: (controller) => controller.dispose(),
     )
     ..registerLazySingleton<VenueAnalyticsRepository>(
       () => VenueAnalyticsRepositoryImpl(serviceLocator<ApiClient>()),
@@ -664,11 +686,6 @@ void setupDependencies() {
       () => MusicianFeedCubit(
         serviceLocator<MusicianFeedRepository>(),
         serviceLocator<EngagementRepository>(),
-        announcementEngagementRepository: EngagementRepositoryImpl(
-          serviceLocator<ApiClient>(),
-          sessions: serviceLocator<AuthSessionManager>(),
-          announcementSource: 'FEED',
-        ),
         collabRepository: serviceLocator<CollabRepository>(),
         followRepository: serviceLocator<FollowRepository>(),
         bandFollowRepository: serviceLocator<BandFollowRepository>(),

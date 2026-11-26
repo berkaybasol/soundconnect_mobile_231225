@@ -68,8 +68,12 @@ class StudioProfileContactEditorSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     Theme.of(context);
     return StudioListenerAccessGate(
-      builder: (_) =>
-          _StudioProfileContactEditorView(profile: profile, onSave: onSave),
+      builder: (_) => AppSurfaceThemeScope(
+        child: _StudioProfileContactEditorView(
+          profile: profile,
+          onSave: onSave,
+        ),
+      ),
     );
   }
 }
@@ -159,7 +163,7 @@ class _StudioProfileContactEditorSheetState
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Material(
-        color: Theme.of(context).colorScheme.surface,
+        color: appCardSurface(context),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(

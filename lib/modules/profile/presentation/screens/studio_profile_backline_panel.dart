@@ -413,6 +413,7 @@ class _BacklineFilters extends StatelessWidget {
             onTap: () async {
               final selected = await Navigator.of(context).push<String>(
                 studioPageRoute(
+                  settings: const SectionRouteSettings.inherit(),
                   builder: (_) => const _BacklineCategoriesScreen(),
                 ),
               );
@@ -670,6 +671,7 @@ class _BacklineItemCard extends StatelessWidget {
       onTap: () async {
         await Navigator.of(context).push<void>(
           studioPageRoute<void>(
+            settings: const SectionRouteSettings.inherit(),
             builder: (_) => _BacklineItemDetailScreen(
               item: item,
               ownerMode: ownerMode,

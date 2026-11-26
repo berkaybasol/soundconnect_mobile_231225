@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import '../screens/studio_listener_info_screen.dart';
 
@@ -8,8 +9,13 @@ import '../screens/studio_listener_info_screen.dart';
 WidgetBuilder studioRouteBoundary(WidgetBuilder builder) =>
     (_) => StudioListenerAccessGate(builder: builder);
 
-MaterialPageRoute<T> studioPageRoute<T>({required WidgetBuilder builder}) =>
-    MaterialPageRoute<T>(builder: studioRouteBoundary(builder));
+MaterialPageRoute<T> studioPageRoute<T>({
+  RouteSettings? settings,
+  required WidgetBuilder builder,
+}) => MaterialPageRoute<T>(
+  settings: settings,
+  builder: studioRouteBoundary(builder),
+);
 
 Future<T?> showStudioModalBottomSheet<T>({
   required BuildContext context,
@@ -20,6 +26,7 @@ Future<T?> showStudioModalBottomSheet<T>({
   ShapeBorder? shape,
 }) => showModalBottomSheet<T>(
   context: context,
+  routeSettings: const SectionRouteSettings(UsageSection.other),
   isScrollControlled: isScrollControlled,
   useSafeArea: useSafeArea,
   backgroundColor: backgroundColor,
@@ -30,4 +37,8 @@ Future<T?> showStudioModalBottomSheet<T>({
 Future<T?> showStudioDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-}) => showDialog<T>(context: context, builder: studioRouteBoundary(builder));
+}) => showDialog<T>(
+  context: context,
+  routeSettings: const SectionRouteSettings(UsageSection.other),
+  builder: studioRouteBoundary(builder),
+);

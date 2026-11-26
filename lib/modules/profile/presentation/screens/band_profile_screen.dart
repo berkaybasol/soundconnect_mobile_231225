@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -439,6 +440,15 @@ class _BandProfileViewState extends State<_BandProfileView> {
     }
 
     final profile = _profile!;
+    final own = profile.members.any(
+      (member) =>
+          member.userId == _currentUserId &&
+          member.status.trim().toUpperCase() == 'ACTIVE',
+    );
+    SectionNavigation.mark(
+      context,
+      SectionNavigation.profileView(ViewedProfile.band, own),
+    );
     final mediaState = context.watch<ProfileMediaCubit>().state;
     final media =
         mediaState.media ??

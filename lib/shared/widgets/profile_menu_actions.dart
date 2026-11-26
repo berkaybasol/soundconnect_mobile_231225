@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../modules/analytics/presentation/section_navigation.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 
@@ -37,6 +38,7 @@ Future<void> showProfileQuickMenu(
   ProfileQuickMenuAction? onAnnouncements,
   ProfileQuickMenuAction? onFeed,
   ProfileQuickMenuAction? onProfileContact,
+  bool showUnavailableGroups = false,
   Key? settingsTileKey,
   Key? profileContactTileKey,
   WidgetBuilder Function(WidgetBuilder)? routeBoundary,
@@ -52,6 +54,7 @@ Future<void> showProfileQuickMenu(
       routeBoundary?.call(builder) ?? builder;
   return showGeneralDialog<void>(
     context: context,
+    routeSettings: const SectionRouteSettings(UsageSection.other),
     barrierDismissible: true,
     barrierLabel: 'Kapat',
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
@@ -76,7 +79,7 @@ Future<void> showProfileQuickMenu(
             widthFactor: 0.58,
             heightFactor: 1,
             child: Material(
-              color: menuTheme.colorScheme.surface,
+              color: appInsetSurface(menuTheme),
               borderRadius: const BorderRadius.horizontal(
                 left: Radius.circular(20),
               ),
@@ -141,6 +144,15 @@ Future<void> showProfileQuickMenu(
                               () => showProfileMenuSupport(context),
                             ),
                           ),
+                          if (showUnavailableGroups)
+                            const Opacity(
+                              opacity: 0.72,
+                              child: ListTile(
+                                enabled: false,
+                                leading: Icon(Icons.groups_outlined),
+                                title: Text('Gruplarim'),
+                              ),
+                            ),
                         ],
                       ),
                       SliverFillRemaining(
@@ -190,57 +202,61 @@ Future<void> showProfileQuickMenu(
 }
 
 Future<void> showProfileMenuThemePicker(BuildContext context) async {
+  final theme = appSurfaceTheme(Theme.of(context));
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (sheetContext) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-            child: Text(
-              'Tema seç',
-              style: Theme.of(
-                sheetContext,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          for (final option in AppThemeMenuOption.values)
-            ListTile(
-              key: Key('profile-menu-theme-${option.name}'),
-              enabled: option.isEnabled,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-              leading: Icon(option.icon),
-              title: Text(
-                option.label,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+    backgroundColor: theme.bottomSheetTheme.modalBackgroundColor,
+    builder: (_) => AppSurfaceThemeScope.builder(
+      builder: (sheetContext) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+              child: Text(
+                'Tema seç',
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              trailing: option.isSelected
-                  ? ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (bounds) => LinearGradient(
-                        colors: AppColors.decorativeGradient,
-                      ).createShader(bounds),
-                      child: const Icon(
-                        Icons.check_circle_rounded,
-                        color: AppColors.white,
-                      ),
-                    )
-                  : null,
-              onTap: option.isEnabled
-                  ? () {
-                      Navigator.of(sheetContext).pop();
-                      option.select(context);
-                    }
-                  : null,
             ),
-          const SizedBox(height: 12),
-        ],
-      );
-    },
+            for (final option in AppThemeMenuOption.values)
+              ListTile(
+                key: Key('profile-menu-theme-${option.name}'),
+                enabled: option.isEnabled,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                leading: Icon(option.icon),
+                title: Text(
+                  option.label,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                trailing: option.isSelected
+                    ? ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: AppColors.decorativeGradient,
+                        ).createShader(bounds),
+                        child: const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.white,
+                        ),
+                      )
+                    : null,
+                onTap: option.isEnabled
+                    ? () {
+                        Navigator.of(sheetContext).pop();
+                        option.select(context);
+                      }
+                    : null,
+              ),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
+    ),
   );
 }
 

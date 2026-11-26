@@ -119,6 +119,7 @@ class _SessionDashboardState extends State<_SessionDashboard> {
           AdminPanelSection.system => SystemHealthScreen(
             key: ObjectKey(entry),
             embedded: true,
+            frame: _frameFor(AdminPanelSection.system),
             repository: SystemHealthRepository(
               serviceLocator<ApiClient>(),
               sessions,

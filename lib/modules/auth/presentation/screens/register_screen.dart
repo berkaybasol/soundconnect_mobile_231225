@@ -6,6 +6,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
@@ -33,7 +34,7 @@ typedef GoogleRegistrationSubmit =
 
 enum _RegistrationStep { username, email, password, role, business }
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key}) : completeGoogleRegistration = null;
 
   const RegisterScreen.google({
@@ -44,10 +45,23 @@ class RegisterScreen extends StatefulWidget {
   final GoogleRegistrationSubmit? completeGoogleRegistration;
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  Widget build(BuildContext context) => AppSurfaceThemeScope(
+    child: _RegistrationForm(
+      completeGoogleRegistration: completeGoogleRegistration,
+    ),
+  );
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegistrationForm extends StatefulWidget {
+  const _RegistrationForm({required this.completeGoogleRegistration});
+
+  final GoogleRegistrationSubmit? completeGoogleRegistration;
+
+  @override
+  State<_RegistrationForm> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<_RegistrationForm> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -316,6 +317,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     String? route;
     try {
       route = await showModalBottomSheet<String>(
+        routeSettings: const SectionRouteSettings(UsageSection.other),
         context: context,
         backgroundColor: Theme.of(context).colorScheme.surface,
         shape: const RoundedRectangleBorder(

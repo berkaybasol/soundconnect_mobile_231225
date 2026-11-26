@@ -6,6 +6,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../analytics/data/analytics_tracker.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
 import '../../../musician_feed/presentation/musician_feed_visual_theme.dart';
+import '../../../../shared/theme/backstage_palette.dart';
 import '../../../profile/presentation/screens/video_reel_screen.dart';
 import '../../domain/entities/announcement.dart';
 import '../../domain/promotion_repository.dart';
@@ -85,6 +86,9 @@ class _AnnouncementDirectoryScreenState
   Widget build(BuildContext context) => MusicianFeedThemeScope(
     child: Builder(
       builder: (context) => Scaffold(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? BackstagePalette.canvas
+            : null,
         appBar: AppBar(
           title: Text(
             widget.admin ? 'Akış Yönetimi · Duyurular' : 'Tüm duyurular',
@@ -208,22 +212,19 @@ class _AnnouncementDirectoryScreenState
                           ),
                         ),
                       );
-                      return widget.admin
+                      return widget.admin ||
+                              !serviceLocator.isRegistered<AnalyticsTracker>()
                           ? card
                           : AnalyticsExposure(
                               key: ValueKey(
                                 'announcement-directory-${item.id}',
                               ),
-                              onExposed: () {
-                                if (serviceLocator
-                                    .isRegistered<AnalyticsTracker>()) {
+                              onExposed: () =>
                                   serviceLocator<AnalyticsTracker>()
                                       .recordAnnouncementImpression(
                                         announcementId: item.id,
                                         source: 'DIRECTORY',
-                                      );
-                                }
-                              },
+                                      ),
                               child: card,
                             );
                     },

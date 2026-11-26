@@ -244,6 +244,7 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    SectionNavigation.mark(context, sectionView(UsageSection.overthinking));
     Theme.of(context);
     return Theme(
       data: OverthinkingPalette.theme(context),

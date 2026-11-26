@@ -83,6 +83,12 @@ void _commentAuthenticationTests(_CommentsRepository Function() repository) {
               findsOneWidget,
             );
             expect(routes, isEmpty);
+            expect(
+              tester
+                  .widget<BottomSheet>(find.byType(BottomSheet))
+                  .backgroundColor,
+              const Color(0xff050910),
+            );
             await tester.tap(
               find.byKey(const Key('registration-email-continue')),
             );

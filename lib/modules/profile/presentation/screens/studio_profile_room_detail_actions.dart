@@ -566,6 +566,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
   }
 
   void _selectStartTime(String time) {
+    SectionNavigation.mark(context, sectionView(UsageSection.other));
     final nextDuration = _canUseDurationAt(time, _durationHours)
         ? _durationHours
         : 1;

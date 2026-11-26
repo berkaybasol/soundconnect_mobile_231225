@@ -11,6 +11,7 @@ void _registerMusicianFeedCubit3() {
     final cubit = MusicianFeedCubit(
       feed,
       _EngagementRepository(),
+      eventIdFactory: const Uuid().v4,
       collabRepository: _CollabRepository(),
       followRepository: _FollowRepository(),
       bandFollowRepository: _BandFollowRepository(),
@@ -65,6 +66,7 @@ void _registerMusicianFeedCubit3() {
       final cubit = MusicianFeedCubit(
         feed,
         _EngagementRepository(),
+        eventIdFactory: const Uuid().v4,
         collabRepository: _CollabRepository(),
         followRepository: follow,
         bandFollowRepository: _BandFollowRepository(),

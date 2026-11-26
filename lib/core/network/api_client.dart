@@ -7,6 +7,7 @@ class ApiRequestContext {
     this.expectedCredentialRevision,
     this.requireGuestSession = false,
     this.announcementSource,
+    this.cancelOn,
   });
 
   final String? expectedSessionKey;
@@ -25,6 +26,9 @@ class ApiRequestContext {
   /// Context for server-confirmed announcement engagement attribution.
   /// Only FEED/DIRECTORY on an authenticated, identity-fenced request is valid.
   final String? announcementSource;
+
+  /// Completing this signal cancels a queued or in-flight transport request.
+  final Future<void>? cancelOn;
 }
 
 abstract class ApiClient {
@@ -71,7 +75,8 @@ abstract class ApiClient {
         requestContext?.expectedToken != null ||
         requestContext?.expectedCredentialRevision != null ||
         requestContext?.requireGuestSession == true ||
-        requestContext?.announcementSource != null) {
+        requestContext?.announcementSource != null ||
+        requestContext?.cancelOn != null) {
       return Future<T>.error(
         UnsupportedError(
           'This ApiClient does not support transport-level session fencing',

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/error/app_error.dart';
@@ -82,7 +81,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
        _followRepository = followRepository,
        _bandFollowRepository = bandFollowRepository,
        _sessions = sessions,
-       _eventIdFactory = eventIdFactory ?? const Uuid().v4,
+       _eventIdFactory = eventIdFactory,
        assert(pageSize > 0 && pageSize <= 30),
        super(const MusicianFeedState()) {
     _unmuteSubscription = muteChanges?.unmuted.listen(_authorUnmutedElsewhere);
@@ -119,7 +118,9 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   final FollowRepository _followRepository;
   final BandFollowRepository _bandFollowRepository;
   final AuthSessionManager _sessions;
-  final String Function() _eventIdFactory;
+  // Feed telemetry is a separate data flow from GA4. The app does not opt in.
+  final String Function()? _eventIdFactory;
+  bool get telemetryEnabled => _eventIdFactory != null;
   final int pageSize;
   StreamSubscription<UserBlockChange>? _blockSubscription;
   StreamSubscription<MusicianFeedAuthorUnmuted>? _unmuteSubscription;
@@ -882,10 +883,11 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     MusicianFeedTelemetryEventType eventType,
   ) async {
     final session = _sessionIdentity;
-    if (isClosed || session == null) return false;
+    final newEventId = _eventIdFactory;
+    if (isClosed || session == null || newEventId == null) return false;
     try {
       final result = await _feedRepository.recordEvent(
-        clientEventId: _eventIdFactory(),
+        clientEventId: newEventId(),
         impressionToken: item.impressionToken,
         eventType: eventType,
       );

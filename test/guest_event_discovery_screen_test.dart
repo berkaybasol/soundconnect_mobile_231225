@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_consent_controller.dart';
 import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/analytics_exposure.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
@@ -25,6 +26,7 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/w
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/brand_gradient_icon.dart';
+import 'support/analytics_consent.dart';
 
 part 'guest_event_discovery_analytics_cases.dart';
 
@@ -44,6 +46,80 @@ const _suggestionNotice =
 void main() {
   _registerGuestEventDiscoveryScreen1();
   _registerGuestEventDiscoveryScreen2();
+  testWidgets(
+    'guest discovery and registration show the same consent card below their primary actions',
+    (tester) async {
+      final consent = TestAnalyticsConsent();
+      serviceLocator.registerSingleton<AnalyticsConsentController>(consent);
+      addTearDown(() async {
+        await serviceLocator.unregister<AnalyticsConsentController>();
+        consent.dispose();
+      });
+      final directory = Platform.environment['ANALYTICS_PREFERENCE_RENDER_DIR'];
+      final boundary = GlobalKey();
+      if (directory != null) await _loadPreviewFonts(tester);
+      await _mount(tester, capture: directory == null ? null : boundary);
+      final dateSurface = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text('NE ZAMAN?'),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final dateColor = (dateSurface.decoration! as BoxDecoration).color!;
+      expect(dateColor.toARGB32(), 0xff080d17);
+      void check(Finder card, Finder actions) {
+        final surface = tester.widget<Container>(card);
+        final decoration = surface.decoration! as BoxDecoration;
+        expect(decoration.color, dateColor.withValues(alpha: .40));
+        expect(decoration.borderRadius, BorderRadius.circular(14));
+        final paint = find
+            .descendant(of: card, matching: find.byType(DecoratedBox))
+            .first;
+        expect(
+          tester.getTopLeft(paint).dy - tester.getBottomLeft(actions).dy,
+          closeTo(16, 1),
+        );
+        expect(
+          tester.getSize(paint).width,
+          closeTo(tester.getSize(actions).width, 2),
+        );
+        expect(
+          find.descendant(
+            of: card,
+            matching: find.text('Kullanım istatistiklerine izin ver'),
+          ),
+          findsOneWidget,
+        );
+      }
+
+      final cards = find.byKey(const Key('analytics-preference-card'));
+      check(cards, find.byKey(const Key('discovery-auth-actions')));
+      if (directory != null) {
+        await _capture(
+          tester,
+          boundary,
+          directory,
+          'kesfet-flutter-widget.png',
+        );
+      }
+      await _tap(tester, 'Üye Ol');
+      final sheet = find.byKey(const Key('registration-options-sheet'));
+      expect(
+        tester.widget<BottomSheet>(find.byType(BottomSheet)).backgroundColor,
+        const Color(0xff050910),
+      );
+      check(
+        find.descendant(of: sheet, matching: cards),
+        find.byKey(const Key('registration-email-continue')),
+      );
+      if (directory != null) {
+        await _capture(tester, boundary, directory, 'kayit-flutter-widget.png');
+      }
+      expect(consent.decisions, isEmpty);
+    },
+  );
 }
 
 Future<void> _mount(

@@ -13,6 +13,7 @@ import '../../../../core/error/result.dart';
 import '../../../../core/error/studio_rejection_error.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
@@ -280,8 +281,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
+  Widget build(BuildContext context) => AppSurfaceThemeScope(child: _form());
+
+  Widget _form() {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.login) return;

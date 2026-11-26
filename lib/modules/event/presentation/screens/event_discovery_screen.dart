@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import 'package:flutter/material.dart';
 
@@ -89,6 +90,12 @@ class _MemberDiscoveryState extends State<MemberEventDiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final session = _sessions.session;
+    SectionNavigation.mark(
+      context,
+      sectionView(
+        _allowed(session) ? UsageSection.discover : UsageSection.other,
+      ),
+    );
     if (!_allowed(session)) {
       // The root session observer/route guard owns the actual sign-in or
       // onboarding redirect. Never leave stale member actions tappable while

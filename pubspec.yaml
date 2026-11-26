@@ -118,6 +118,7 @@ flutter:
     - assets/ME!2-transparent.png
     - assets/backline_icons/
     - assets/admin/
+    - assets/privacy/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

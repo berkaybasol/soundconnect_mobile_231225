@@ -6,6 +6,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
@@ -17,14 +18,22 @@ import '../cubit/auth_state.dart';
 
 enum _PasswordResetStep { identifier, confirmation, password, code, success }
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends StatelessWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  Widget build(BuildContext context) =>
+      const AppSurfaceThemeScope(child: _PasswordResetForm());
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _PasswordResetForm extends StatefulWidget {
+  const _PasswordResetForm();
+
+  @override
+  State<_PasswordResetForm> createState() => _PasswordResetFormState();
+}
+
+class _PasswordResetFormState extends State<_PasswordResetForm> {
   static const _requestSuccessMessage = 'Şifre sıfırlama kodu gönderildi.';
 
   final _identifierController = TextEditingController();
@@ -716,9 +725,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         vertical: compact ? 12 : 16,
       ),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? colors.surfaceContainer
+            : AppColors.inputFill,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: colors.outline),
       ),
       child: Row(
         children: [

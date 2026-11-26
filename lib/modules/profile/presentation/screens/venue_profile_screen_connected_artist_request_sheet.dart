@@ -8,6 +8,7 @@ Future<ConnectedArtistRequestPayload?> showConnectedArtistRequestBottomSheet({
   searchArtists,
 }) {
   return showModalBottomSheet<ConnectedArtistRequestPayload>(
+    routeSettings: const SectionRouteSettings(UsageSection.other),
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.navBlueDeep,

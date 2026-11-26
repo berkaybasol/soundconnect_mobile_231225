@@ -10,6 +10,8 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/section_navigation.dart';
+import 'package:soundconnect_23_12_25codx/modules/marketplace/presentation/marketplace_access_gate.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_state.dart';
@@ -32,6 +34,8 @@ import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/scre
 import 'package:soundconnect_23_12_25codx/modules/profile/data/profile_search_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_search_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_search_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/navigation/profile_route_gate.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/navigation/profile_route_resolver.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/backstage_profile_search_sheet.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
@@ -719,6 +723,64 @@ void main() {
       );
       expect(routes, hasLength(count));
       await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'market filters stay in marketplace, global search is other, studio opens and back restores marketplace',
+    (tester) async {
+      final sessions = AudienceTestSessions(audienceSession(role: 'MUSICIAN'));
+      addTearDown(sessions.dispose);
+      serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+      serviceLocator.registerSingleton<ProfileSearchRepository>(_Search());
+      final visits = <SectionView>[];
+      late BuildContext market;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          navigatorObservers: [SectionNavigation(visits.add)],
+          initialRoute: AppRoutes.marketplace,
+          routes: {
+            AppRoutes.marketplace: (_) => MarketplaceAccessGate(
+              builder: (context) {
+                market = context;
+                return const Scaffold(body: Text('Market'));
+              },
+            ),
+            AppRoutes.studioPublicProfile: (context) => ProfileRouteGate(
+              target: ProfileRouteTarget.fromArguments(
+                ProfileRouteKind.studio,
+                ModalRoute.of(context)!.settings.arguments,
+              ),
+              publicBuilder: (_) => const Scaffold(body: Text('Studio')),
+            ),
+          },
+        ),
+      );
+      expect(visits.last.section, UsageSection.marketplace);
+      unawaited(marketplaceSheet<void>(market, (_) => const Text('Filter')));
+      await tester.pumpAndSettle();
+      expect(find.text('Filter'), findsOneWidget);
+      expect(visits.last.section, UsageSection.marketplace);
+      Navigator.of(market).pop();
+      await tester.pumpAndSettle();
+      unawaited(showBackstageProfileSearch(market));
+      await tester.pumpAndSettle();
+      expect(visits.last.section, UsageSection.other);
+      await tester.enterText(find.byType(TextField), 'studio');
+      await tester.pump(const Duration(milliseconds: 310));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hidden studio'));
+      await tester.pumpAndSettle();
+      expect(find.text('Studio'), findsOneWidget);
+      expect(
+        visits.last,
+        SectionNavigation.profileView(ViewedProfile.studio, false),
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Market'), findsOneWidget);
+      expect(visits.last.section, UsageSection.marketplace);
     },
   );
 

@@ -6,6 +6,7 @@ import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/pagination/page.dart';
 import '../domain/admin_user_directory.dart';
+import '../domain/admin_analytics_report.dart';
 import '../domain/admin_decision_reason.dart';
 import 'admin_report_api.dart';
 
@@ -29,6 +30,31 @@ class AdminUserDirectoryRepository {
   static const _path = '/api/v1/admin/users';
   final AdminReportApi _api;
   final AuthSessionManager _sessions;
+
+  Future<Result<AdminAnalyticsReport>> analyticsReport(
+    DateTime month,
+    AdminUserProfileType? profile,
+  ) {
+    final period = reportMonth(month);
+    return _api.request(
+      ApiHttpMethod.get,
+      '$_path/analytics-report',
+      query: {
+        'month': period,
+        if (profile != null) 'profileType': profile.wire,
+      },
+      decode: (data) => AdminAnalyticsReport.read(data, period, profile),
+    );
+  }
+
+  Future<Result<MemberPreferenceCounts>> preferenceCounts(
+    AdminUserProfileType? profileType,
+  ) => _api.request(
+    ApiHttpMethod.get,
+    '$_path/analytics-preferences',
+    query: {if (profileType != null) 'profileType': profileType.wire},
+    decode: MemberPreferenceCounts.fromJson,
+  );
 
   Future<Result<Page<AdminUserAccount>>> search({
     String query = '',

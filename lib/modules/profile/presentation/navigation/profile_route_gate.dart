@@ -1,5 +1,6 @@
 import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import 'package:flutter/material.dart';
 
@@ -189,8 +190,18 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
     Theme.of(context);
     if (widget.target.kind == ProfileRouteKind.studio &&
         isStudioRestrictedListener(_manager?.session)) {
+      SectionNavigation.mark(context, sectionView(UsageSection.other));
       return const StudioListenerInfoScreen();
     }
+    SectionNavigation.mark(
+      context,
+      _public
+          ? SectionNavigation.profileView(
+              ViewedProfile.values.byName(widget.target.kind.name),
+              false,
+            )
+          : sectionView(UsageSection.other),
+    );
     if (_public) return widget.publicBuilder(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),

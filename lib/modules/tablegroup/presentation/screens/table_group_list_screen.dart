@@ -1,5 +1,6 @@
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -42,6 +43,10 @@ class TableGroupListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SectionNavigation.mark(
+      context,
+      sectionView(UsageSection.tables, table: TableView.list),
+    );
     Theme.of(context);
     return AppSurfaceThemeScope(
       child: BlocProvider(

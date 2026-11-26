@@ -1,6 +1,7 @@
 class AppRoutes {
   static const String accountSuspended = '/account-suspended';
   static const adminSystemHealth = '/admin/system-health';
+  static const adminStatistics = '/admin/statistics';
   static const adminDashboard = '/admin';
   static const adminUsers = '/admin/users';
   static const adminApplications = '/admin/applications';

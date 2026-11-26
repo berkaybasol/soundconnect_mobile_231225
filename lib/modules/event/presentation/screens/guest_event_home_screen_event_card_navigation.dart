@@ -4,6 +4,10 @@ extension _GuestEventCardNavigation on _EventCard {
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
+        settings: const SectionRouteSettings(
+          UsageSection.discover,
+          discoveryEvent: true,
+        ),
         builder: (_) => WeeklyEventDetailScreen(
           event: WeeklyCalendarEvent(
             id: item.id,

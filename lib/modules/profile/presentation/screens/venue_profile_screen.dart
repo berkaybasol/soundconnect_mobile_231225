@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,14 +21,12 @@ import '../../../follow/presentation/cubit/follow_count_state.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../analytics/presentation/screens/venue_analytics_screen.dart';
 import '../../../analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
 import 'venue_artists_screen.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
-import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/artist_venue_application.dart';
 import '../../domain/entities/musician_profile.dart';
@@ -78,6 +77,10 @@ class VenueProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SectionNavigation.mark(
+      context,
+      SectionNavigation.profileView(ViewedProfile.venue, true),
+    );
     Theme.of(context);
     return MultiBlocProvider(
       providers: [

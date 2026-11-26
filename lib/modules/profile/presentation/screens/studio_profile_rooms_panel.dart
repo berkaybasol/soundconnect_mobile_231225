@@ -396,7 +396,7 @@ class _StudioRoomCard extends StatelessWidget {
                 icon: Icons.event_available_outlined,
                 label: 'Rezervasyon Yap',
                 outlined: true,
-                onTap: () => _openRoom(context),
+                onTap: () => _openRoom(context, reservation: true),
               ),
             ],
           ],
@@ -405,9 +405,12 @@ class _StudioRoomCard extends StatelessWidget {
     );
   }
 
-  void _openRoom(BuildContext context) {
+  void _openRoom(BuildContext context, {bool reservation = false}) {
     Navigator.of(context).push(
       studioPageRoute<void>(
+        settings: reservation
+            ? const SectionRouteSettings(UsageSection.other)
+            : const SectionRouteSettings.inherit(),
         builder: (_) => _StudioRoomDetailScreen(
           room: room,
           studioProfileId: profileId,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../analytics/presentation/widgets/analytics_preference_entry.dart';
 import '../../data/google_auth_repository.dart';
 import '../screens/login_screen.dart';
 
@@ -21,21 +24,21 @@ Future<void> openRegistrationOptions(BuildContext context) async {
 
   _registrationInProgress[navigator] = true;
   try {
+    final surfaceTheme = appSurfaceTheme(Theme.of(context));
     final method = await showModalBottomSheet<_RegistrationMethod>(
+      routeSettings: const SectionRouteSettings(UsageSection.other),
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: surfaceTheme.scaffoldBackgroundColor,
       barrierColor: Colors.black.withValues(alpha: .65),
       shape: RoundedRectangleBorder(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outline,
-          width: .8,
-        ),
+        side: BorderSide(color: surfaceTheme.colorScheme.outline, width: .8),
       ),
       clipBehavior: Clip.antiAlias,
-      builder: (_) => const _RegistrationOptionsSheet(),
+      builder: (_) =>
+          Theme(data: surfaceTheme, child: const _RegistrationOptionsSheet()),
     );
     // Never navigate from a disposed sheet context or a page replaced while
     // the options were open. Dismissal is not a registration choice.
@@ -228,6 +231,7 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                 ),
               ),
             ),
+            const GuestAnalyticsPreferenceEntry(),
           ],
         ),
       ),

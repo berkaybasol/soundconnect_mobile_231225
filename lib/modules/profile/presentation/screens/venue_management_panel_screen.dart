@@ -12,6 +12,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
@@ -45,8 +46,10 @@ class VenueManagementPanelScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildPanel);
+
+  Widget _buildPanel(BuildContext context) {
     final reporting = VenueAnalyticsReportingScope.of(context).enabled;
     return Scaffold(
       appBar: AppBar(title: Text('Mekan Yönetimi'), centerTitle: true),

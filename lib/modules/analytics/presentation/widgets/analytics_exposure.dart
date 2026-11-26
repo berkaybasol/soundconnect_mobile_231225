@@ -27,6 +27,22 @@ class AnalyticsExposure extends StatefulWidget {
   final bool enabled;
   final Duration minimumVisibleDuration;
 
+  /// An inactive collector needs neither a visibility detector nor a dwell timer.
+  static Widget whenEnabled({
+    required bool enabled,
+    required Key key,
+    required Widget child,
+    required VoidCallback onExposed,
+    Duration minimumVisibleDuration = const Duration(seconds: 1),
+  }) => enabled
+      ? AnalyticsExposure(
+          key: key,
+          onExposed: onExposed,
+          minimumVisibleDuration: minimumVisibleDuration,
+          child: child,
+        )
+      : KeyedSubtree(key: key, child: child);
+
   @override
   State<AnalyticsExposure> createState() => _AnalyticsExposureState();
 }

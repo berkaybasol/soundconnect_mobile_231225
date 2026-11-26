@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../modules/analytics/presentation/section_navigation.dart';
 
 import '../core/auth/auth_session_manager.dart';
 import '../core/di/service_locator.dart';
@@ -22,11 +23,16 @@ class BackstageHomeScreen extends StatelessWidget {
         if (session.isAuthenticated &&
             session.isActive &&
             AccessPolicy.canAccessMarketplace(session.roles)) {
+          SectionNavigation.mark(
+            context,
+            sectionView(UsageSection.marketplace),
+          );
           return MarketplaceScreen(
             key: ValueKey(session),
             bottomNavigationBar: ProfilePublicBottomBar(currentIndex: 0),
           );
         }
+        SectionNavigation.mark(context, sectionView(UsageSection.other));
         return const BackstageProfilesHomeScreen();
       },
     );

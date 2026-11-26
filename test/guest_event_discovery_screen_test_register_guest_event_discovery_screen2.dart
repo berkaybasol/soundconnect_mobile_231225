@@ -544,37 +544,7 @@ void _registerGuestEventDiscoveryScreen2() {
     testWidgets('render readable initial, date sheet, and result previews', (
       tester,
     ) async {
-      await tester.runAsync(() async {
-        final materialFonts =
-            '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
-        final font = FontLoader('Roboto');
-        for (final name in [
-          'Roboto-Regular.ttf',
-          'Roboto-Medium.ttf',
-          'Roboto-Bold.ttf',
-          'Roboto-Black.ttf',
-        ]) {
-          font.addFont(
-            File(
-              '$materialFonts/$name',
-            ).readAsBytes().then(ByteData.sublistView),
-          );
-        }
-        await font.load();
-        final icons = FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-        await icons.load();
-        if (Platform.isWindows) {
-          final emojiFile = File(
-            '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts/seguiemj.ttf',
-          );
-          if (await emojiFile.exists()) {
-            final emoji = FontLoader('GuestPreviewEmoji')
-              ..addFont(emojiFile.readAsBytes().then(ByteData.sublistView));
-            await emoji.load();
-          }
-        }
-      });
+      await _loadPreviewFonts(tester);
       final key = GlobalKey();
       final search = _Search()
         ..reply = (_) async => _page(['Şehirde Bir Akşam'], total: 1);
@@ -609,4 +579,36 @@ void _registerGuestEventDiscoveryScreen2() {
       await _capture(tester, key, directory, '07-suggestion-form.png');
     });
   }
+}
+
+Future<void> _loadPreviewFonts(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    final materialFonts =
+        '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
+    final font = FontLoader('Roboto');
+    for (final name in [
+      'Roboto-Regular.ttf',
+      'Roboto-Medium.ttf',
+      'Roboto-Bold.ttf',
+      'Roboto-Black.ttf',
+    ]) {
+      font.addFont(
+        File('$materialFonts/$name').readAsBytes().then(ByteData.sublistView),
+      );
+    }
+    await font.load();
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
+    if (Platform.isWindows) {
+      final emojiFile = File(
+        '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts/seguiemj.ttf',
+      );
+      if (await emojiFile.exists()) {
+        final emoji = FontLoader('GuestPreviewEmoji')
+          ..addFont(emojiFile.readAsBytes().then(ByteData.sublistView));
+        await emoji.load();
+      }
+    }
+  });
 }

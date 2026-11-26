@@ -136,7 +136,9 @@ class AppRouteGuard {
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
       return startRouteFor(session);
     }
-    if (requested == AppRoutes.adminUsers && !canReadAdminUsers(session)) {
+    if ((requested == AppRoutes.adminUsers ||
+            requested == AppRoutes.adminStatistics) &&
+        !canReadAdminUsers(session)) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.adminBacklineRequests &&

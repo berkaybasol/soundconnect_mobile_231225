@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import '../../core/auth/auth_session_manager.dart';
 import '../../modules/collab/data/collab_repository_impl.dart';
 import '../../modules/engagement/data/engagement_repository_impl.dart';
@@ -40,6 +42,7 @@ class PreviewServiceBundle {
   MusicianFeedCubit createFeedCubit() => MusicianFeedCubit(
     feed,
     engagement,
+    eventIdFactory: const Uuid().v4,
     collabRepository: collab,
     followRepository: follow,
     bandFollowRepository: bandFollow,

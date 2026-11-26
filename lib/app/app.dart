@@ -3,6 +3,8 @@ import '../modules/notification/presentation/screens/custom_notification_open_sc
 import '../modules/auth/presentation/screens/venue_application_decision_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
+import '../modules/analytics/data/analytics_measurement.dart';
+import '../modules/analytics/presentation/section_navigation.dart';
 import '../modules/notification/presentation/screens/follow_notification_open_screen.dart';
 import '../modules/notification/presentation/screens/band_notification_open_screen.dart';
 import '../modules/notification/presentation/screens/table_notification_open_screen.dart';
@@ -31,6 +33,7 @@ import '../modules/dm/presentation/dm_chat_route_observer.dart';
 import '../modules/notification/presentation/notification_target_read.dart';
 import '../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../modules/analytics/presentation/widgets/analytics_exposure.dart';
+import '../modules/analytics/data/analytics_consent_controller.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
@@ -194,12 +197,25 @@ class _SoundConnectAppState extends State<SoundConnectApp>
   bool _pendingLinkFrameScheduled = false;
   String? _lastAccessNoticeIdentity;
   PushCoordinator? _push;
+  AnalyticsConsentController? _analytics;
+  SectionNavigation? _sections;
   bool _pushNavigationInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _sessionManager = serviceLocator<AuthSessionManager>();
+    if (serviceLocator.isRegistered<AnalyticsConsentController>()) {
+      _analytics = serviceLocator<AnalyticsConsentController>();
+    }
+    if (serviceLocator.isRegistered<AnalyticsMeasurement>()) {
+      _sections = SectionNavigation(
+        serviceLocator<AnalyticsMeasurement>().show,
+      );
+      _analytics?.setForeground(
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+      );
+    }
     _access = SessionAccessMonitor(_sessionManager);
     WidgetsBinding.instance.addObserver(this);
     _access.addListener(_schedulePendingLinkProcessing);
@@ -228,6 +244,7 @@ class _SoundConnectAppState extends State<SoundConnectApp>
       _initialSessionFuture.then((_) {
         if (!mounted) return;
         _sessionRestoreCompleted = true;
+        if (_analytics != null) unawaited(_analytics!.start());
         _schedulePendingLinkProcessing();
       }),
     );
@@ -551,6 +568,7 @@ class _SoundConnectAppState extends State<SoundConnectApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _analytics?.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
       _access.setForeground(true);
     } else if (state == AppLifecycleState.hidden ||
@@ -590,6 +608,7 @@ class _SoundConnectAppState extends State<SoundConnectApp>
                 navigatorObservers: <NavigatorObserver>[
                   notificationTargetRouteObserver,
                   _routeObserver,
+                  if (_sections != null) _sections!,
                   analyticsRouteObserver,
                   dmChatRouteObserver,
                 ],
@@ -604,6 +623,10 @@ class _SoundConnectAppState extends State<SoundConnectApp>
                 builder: (context, navigator) => ListenableBuilder(
                   listenable: Listenable.merge([_sessionManager, _access]),
                   builder: (context, _) {
+                    _sections?.obscure(
+                      _access.blocksContent ||
+                          _sessionManager.session.isSuspendedNotice,
+                    );
                     if (_sessionManager.session.isSuspendedNotice) {
                       return AccountSuspendedScreen(
                         onReturnToLogin: _returnFromSuspension,

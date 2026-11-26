@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../theme/app_colors.dart';
+import '../theme/backstage_palette.dart';
 import 'gradient_outline_button.dart';
 
 const Key sessionLogoutButtonKey = Key('session-logout-button');
@@ -16,10 +17,12 @@ Future<bool> confirmAndLogoutSession(BuildContext context) async {
     context: context,
     builder: (dialogContext) {
       final colors = Theme.of(dialogContext).colorScheme;
-      final dialogColor = Color.alphaBlend(
-        colors.onSurface.withValues(alpha: 0.035),
-        colors.surface,
-      );
+      final dialogColor = colors.brightness == Brightness.dark
+          ? BackstagePalette.input
+          : Color.alphaBlend(
+              colors.onSurface.withValues(alpha: 0.035),
+              colors.surface,
+            );
       return Dialog(
         backgroundColor: dialogColor,
         surfaceTintColor: Colors.transparent,

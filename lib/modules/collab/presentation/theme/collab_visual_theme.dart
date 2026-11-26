@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/backstage_palette.dart';
@@ -165,7 +166,7 @@ Route<T> collabPageRoute<T>({
 }) {
   final identity = collabAccessIdentityFor(context);
   return MaterialPageRoute<T>(
-    settings: settings,
+    settings: settings ?? const SectionRouteSettings(UsageSection.collab),
     builder: (context) => CollabThemeScope(
       child: CollabAccessGate(builder: builder, expectedIdentity: identity),
     ),

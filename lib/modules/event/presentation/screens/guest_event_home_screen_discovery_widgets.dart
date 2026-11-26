@@ -11,17 +11,10 @@ class _DiscoverySurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: darkenBackground && theme.brightness == Brightness.dark
-            ? Color.lerp(
-                appCardSurface(context),
-                theme.scaffoldBackgroundColor,
-                .45,
-              )
-            : appCardSurface(context),
+        color: appCardSurface(context, darkenBackground: darkenBackground),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.8),
@@ -309,29 +302,36 @@ class _DiscoveryAuthFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     Theme.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _DiscoveryPrimaryButton(
-              label: 'Giriş Yap',
-              icon: null,
-              brandBorder: false,
-              onTap: () => Navigator.of(context).pushNamed(AppRoutes.login),
-            ),
+          Row(
+            key: const Key('discovery-auth-actions'),
+            children: [
+              Expanded(
+                child: _DiscoveryPrimaryButton(
+                  label: 'Giriş Yap',
+                  icon: null,
+                  brandBorder: false,
+                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.login),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DiscoveryPrimaryButton(
+                  label: 'Üye Ol',
+                  icon: null,
+                  onTap: () => openRegistrationOptions(context),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _DiscoveryPrimaryButton(
-              label: 'Üye Ol',
-              icon: null,
-              onTap: () => openRegistrationOptions(context),
-            ),
-          ),
+          const GuestAnalyticsPreferenceEntry(),
         ],
       ),
     );

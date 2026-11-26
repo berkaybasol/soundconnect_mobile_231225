@@ -16,6 +16,8 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listen
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/session_logout_action.dart';
 
@@ -46,6 +48,55 @@ void main() {
   tearDown(() async {
     await GetIt.instance.reset();
   });
+
+  for (final light in [false, true]) {
+    testWidgets(
+      'listener navigation, menu and logout use the ${light ? 'light' : 'dark'} palette',
+      (tester) async {
+        _registerDmBadgeCubit(tokenStore);
+        _registerListenerRepository(_PendingListenerProfileRepository());
+        final theme = light ? AppTheme.light : AppTheme.navy;
+        await tester.pumpWidget(
+          MaterialApp(theme: theme, home: const ListenerProfileScreen()),
+        );
+        await tester.pump();
+        final barTheme = Theme.of(
+          tester.element(find.byType(BottomNavigationBar)),
+        );
+        expect(
+          barTheme.scaffoldBackgroundColor,
+          light ? theme.scaffoldBackgroundColor : BackstagePalette.canvas,
+        );
+        expect(
+          barTheme.colorScheme.surface,
+          light ? theme.colorScheme.surface : BackstagePalette.canvas,
+        );
+        await _openListenerMenu(tester);
+        final drawer = tester
+            .element(find.text('Ayarlar'))
+            .findAncestorWidgetOfExactType<Material>()!;
+        expect(
+          drawer.color?.toARGB32(),
+          light ? theme.colorScheme.surface.toARGB32() : 0xFF080D17,
+        );
+        await tester.tap(find.byKey(sessionLogoutMenuTileKey));
+        await _openLogoutDialog(tester);
+        final dialog = tester.widget<Dialog>(find.byType(Dialog));
+        expect(
+          dialog.backgroundColor,
+          light
+              ? Color.alphaBlend(
+                  theme.colorScheme.onSurface.withValues(alpha: .035),
+                  theme.colorScheme.surface,
+                )
+              : BackstagePalette.input,
+        );
+        await tester.tap(find.text('Vazgeç'));
+        await _openLogoutDialog(tester);
+        expect(tokenStore.clearCalls, 0);
+      },
+    );
+  }
 
   testWidgets('cancel keeps the current session intact', (tester) async {
     await tester.pumpWidget(_logoutButtonApp());

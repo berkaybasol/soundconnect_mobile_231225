@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
@@ -18,15 +19,59 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/media_
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/promotion/domain/entities/announcement.dart';
 import 'package:soundconnect_23_12_25codx/modules/promotion/presentation/screens/announcement_editor_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/promotion/presentation/screens/announcement_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/promotion/presentation/widgets/announcement_media.dart';
 import 'package:soundconnect_23_12_25codx/shared/images/app_cached_network_image.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'support/announcement_fixtures.dart';
 import 'support/event_audience_fakes.dart';
+import 'support/recording_api_client.dart';
 
 void main() {
   setUp(() async => GetIt.instance.reset());
   tearDown(() async => GetIt.instance.reset());
+  for (final source in ['DIRECTORY', 'FEED']) {
+    testWidgets(
+      'liking an announcement from $source sends only the product request',
+      (tester) async {
+        final sessions = AudienceTestSessions(audienceSession());
+        addTearDown(sessions.dispose);
+        final api = RecordingApiClient((_) => null);
+        GetIt.instance.registerSingleton<ApiClient>(api);
+        final repository = AnnouncementTestRepository()
+          ..current = Announcement.fromJson(
+            announcementFixture(status: 'PUBLISHED'),
+          );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AnnouncementDetailScreen(
+              id: announcementFixtureId,
+              source: source,
+              repository: repository,
+              sessions: sessions,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final like = find.byTooltip('Beğen');
+        await tester.ensureVisible(like);
+        await tester.tap(like);
+        await tester.pumpAndSettle();
+        final request = api.requests.singleWhere(
+          (request) => request.method == RecordedHttpMethod.post,
+        );
+        expect(
+          request.path,
+          '/api/v1/likes/ANNOUNCEMENT/$announcementFixtureId',
+        );
+        expect(
+          request.requestContext!.expectedSessionKey,
+          sessions.session.userId,
+        );
+        expect(request.requestContext!.announcementSource, isNull);
+      },
+    );
+  }
   test('announcement management route requires exact permission', () {
     expect(
       AppRouteGuard.redirectFor(

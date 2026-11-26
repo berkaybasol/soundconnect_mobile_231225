@@ -13,8 +13,10 @@ class MusicianManagementPanelScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope.builder(builder: _buildPanel);
+
+  Widget _buildPanel(BuildContext context) {
     final profileName = musicianProfile.username?.trim().isNotEmpty == true
         ? musicianProfile.username!.trim()
         : 'Sanatçı';

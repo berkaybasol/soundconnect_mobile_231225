@@ -6,6 +6,8 @@ import 'package:get_it/get_it.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/analytics_exposure.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/media_access.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/media_gallery_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
@@ -101,11 +103,13 @@ void main() {
     expect(reel.looping, isTrue);
   });
 
-  for (final admin in [false, true]) {
+  for (final (admin, collector) in [
+    (false, false),
+    (false, true),
+    (true, false),
+  ]) {
     testWidgets(
-      admin
-          ? 'admin announcement preview reaches end and has no analytics hooks'
-          : 'announcement detail configures terminal playback with analytics hooks',
+      'announcement playback for admin=$admin with optional collector=$collector',
       (tester) async {
         _mockNativeTransport(tester);
         final sessions = AudienceTestSessions(
@@ -120,6 +124,9 @@ void main() {
           _Uploads(),
         );
         GetIt.instance.registerSingleton<ApiClient>(_Api());
+        if (collector) {
+          GetIt.instance.registerSingleton<AnalyticsTracker>(_Tracker());
+        }
         final repository = AnnouncementTestRepository()
           ..current = Announcement.fromJson({
             ...announcementFixture(status: admin ? 'DRAFT' : 'PUBLISHED'),
@@ -150,6 +157,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(
+          find.byType(AnalyticsExposure),
+          collector ? findsOneWidget : findsNothing,
+        );
         final play = find.byTooltip('Duyuru videosunu oynat');
         await tester.scrollUntilVisible(
           play,
@@ -167,8 +178,8 @@ void main() {
         );
         expect(reel.looping, isFalse);
         expect(reel.showEngagement, !admin);
-        expect(reel.onPlaybackStarted, admin ? isNull : isNotNull);
-        expect(reel.onPlaybackCompleted, admin ? isNull : isNotNull);
+        expect(reel.onPlaybackStarted, collector ? isNotNull : isNull);
+        expect(reel.onPlaybackCompleted, collector ? isNotNull : isNull);
         final controller = tester
             .widget<BetterPlayer>(find.byType(BetterPlayer))
             .controller;
@@ -179,6 +190,15 @@ void main() {
       },
     );
   }
+}
+
+class _Tracker extends Fake implements AnalyticsTracker {
+  @override
+  void recordAnnouncementDetailView({
+    required String announcementId,
+    required String source,
+    String? impressionToken,
+  }) {}
 }
 
 // Widget tests inspect the production route/controller wiring. They deliberately

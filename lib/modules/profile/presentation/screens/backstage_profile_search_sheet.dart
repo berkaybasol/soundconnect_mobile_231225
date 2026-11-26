@@ -7,6 +7,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import '../../domain/entities/profile_search_result.dart';
 import '../../domain/profile_search_repository.dart';
 import '../navigation/profile_search_navigation.dart';
@@ -16,6 +17,7 @@ import 'profile_route_args.dart';
 Future<void> showBackstageProfileSearch(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
+    routeSettings: const SectionRouteSettings(UsageSection.other),
     isScrollControlled: true,
     backgroundColor: AppColors.navBlueDeep,
     shape: const RoundedRectangleBorder(

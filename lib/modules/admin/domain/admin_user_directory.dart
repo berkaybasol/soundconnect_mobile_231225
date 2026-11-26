@@ -34,6 +34,36 @@ enum AdminUserProfileType {
 
 typedef AdminUserStatus = UserStatus;
 
+class MemberPreferenceCounts {
+  const MemberPreferenceCounts({
+    required this.granted,
+    required this.denied,
+    required this.undecided,
+    required this.asOf,
+  });
+
+  final int granted;
+  final int denied;
+  final int undecided;
+  final DateTime asOf;
+
+  factory MemberPreferenceCounts.fromJson(Object? value) {
+    final json = value as Map;
+    int count(String field) {
+      final value = json[field];
+      if (value is int && value >= 0) return value;
+      throw FormatException('Invalid preference count: $field');
+    }
+
+    return MemberPreferenceCounts(
+      granted: count('granted'),
+      denied: count('denied'),
+      undecided: count('undecided'),
+      asOf: DateTime.parse(json['asOf'] as String),
+    );
+  }
+}
+
 extension AdminUserStatusLabel on UserStatus {
   String get wire => apiValue;
   String get label => switch (this) {

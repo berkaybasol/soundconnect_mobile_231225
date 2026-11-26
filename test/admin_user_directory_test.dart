@@ -15,6 +15,7 @@ import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_user_director
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/admin_user_directory.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_user_directory_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_statistics_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/navigation/profile_route_resolver.dart';
 
 import 'support/event_audience_fakes.dart';
@@ -373,6 +374,82 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'preference report separates refusals from missing decisions and filters by role',
+    (tester) async {
+      final sessions = AudienceTestSessions(admin());
+      final api = RecordingApiClient(
+        (r) => r.path.endsWith('/analytics-report')
+            ? {
+                'month': r.query!['month'],
+                'profileType': r.query!['profileType'] ?? 'ALL',
+                'asOf': '2026-11-26T12:00:00Z',
+                'coverageStart': '2026-11-26',
+                'live': {
+                  'asOf': '2026-11-26T12:00:00Z',
+                  'members': 7,
+                  'guests': 3,
+                },
+                'membership': null,
+                'usage': null,
+                'firstWeek': null,
+                'peaks': {'samples': 0, 'members': null, 'guests': null},
+                'issues': ['unavailable'],
+              }
+            : {
+                'granted': 16,
+                'denied': r.query?['profileType'] == 'MUSICIAN' ? 4 : 9,
+                'undecided': 20,
+                'asOf': '2026-11-26T12:00:00Z',
+              },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AdminStatisticsScreen(
+            entry: sessions.session,
+            sessions: sessions,
+            repository: AdminUserDirectoryRepository(api, sessions),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(api.lastRequest.path, '$path/analytics-preferences');
+      expect(api.lastRequest.query, isEmpty);
+      expect(find.text('Son 5 dakikada aktif'), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
+      expect(find.textContaining('14:55–15:00 TSİ'), findsOneWidget);
+      expect(find.text('Bazı veriler henüz alınamadı.'), findsOneWidget);
+      await tap(tester, find.text('Üyelik ve ölçüm tercihleri'));
+      expect(find.text('Kapalıyı seçti'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+      expect(find.text('Henüz seçmedi'), findsOneWidget);
+      expect(find.text('20'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, 900));
+      await tester.pumpAndSettle();
+      await tap(tester, find.text('Tüm üyeler'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Müzisyen').last);
+      await tester.pumpAndSettle();
+      expect(api.lastRequest.query, {'profileType': 'MUSICIAN'});
+      expect(
+        api.requests
+            .where((r) => r.path.endsWith('/analytics-report'))
+            .last
+            .query?['profileType'],
+        'MUSICIAN',
+      );
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('9'), findsNothing);
+      sessions.replace(const AuthSession.guest());
+      await tester.pumpAndSettle();
+      expect(find.text('4'), findsNothing);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.adminStatistics, sessions.session),
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets(
     'panel shortcut opens the guarded feature from the real router only for eligible sessions',

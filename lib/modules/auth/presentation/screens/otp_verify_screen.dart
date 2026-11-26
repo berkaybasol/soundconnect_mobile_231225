@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/user_status.dart';
@@ -26,14 +27,22 @@ class OtpVerifyArgs {
   });
 }
 
-class OtpVerifyScreen extends StatefulWidget {
+class OtpVerifyScreen extends StatelessWidget {
   const OtpVerifyScreen({super.key});
 
   @override
-  State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
+  Widget build(BuildContext context) =>
+      const AppSurfaceThemeScope(child: _OtpForm());
 }
 
-class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
+class _OtpForm extends StatefulWidget {
+  const _OtpForm();
+
+  @override
+  State<_OtpForm> createState() => _OtpFormState();
+}
+
+class _OtpFormState extends State<_OtpForm> {
   final _codeController = TextEditingController();
   String? _email;
   String? _role;

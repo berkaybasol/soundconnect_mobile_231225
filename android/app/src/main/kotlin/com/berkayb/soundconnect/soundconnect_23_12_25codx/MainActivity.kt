@@ -53,6 +53,7 @@ class MainActivity : AudioServiceActivity() {
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
+    AnalyticsConsentChannel.attach(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     if (!flutterEngine.plugins.has(NativePushDeliveryPlugin::class.java)) {
       flutterEngine.plugins.add(NativePushDeliveryPlugin())
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../analytics/presentation/section_navigation.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:io';
 import 'dart:ui';
@@ -19,6 +20,7 @@ import '../../../../shared/widgets/guest_access_sheet.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../analytics/presentation/widgets/analytics_tracking.dart';
+import '../../../analytics/presentation/widgets/analytics_preference_entry.dart';
 import '../../data/event_discovery_search_repository_impl.dart';
 import '../../data/venue_suggestion_repository_impl.dart';
 import '../../domain/event_discovery_date_policy.dart';
@@ -46,6 +48,7 @@ class GuestEventHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
+    SectionNavigation.mark(context, sectionView(UsageSection.discover));
     const updated = bool.fromEnvironment(
       'GUEST_DISCOVERY_V2',
       defaultValue: true,

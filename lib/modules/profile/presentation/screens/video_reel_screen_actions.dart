@@ -4,17 +4,18 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
   void _stopPlayback({bool dispose = false}) {
     final controller = _playerController;
     if (controller == null) return;
+    if (dispose) {
+      _playerController = null;
+      controller.removeEventsListener(_playbackEvent);
+      controller.dispose(forceDispose: true);
+      return;
+    }
     if (controller.videoPlayerController != null) {
       // Pause/mute return Futures: a synchronous try/catch cannot handle a
       // native teardown error. These are best-effort stop operations; decode
       // failures continue to surface through _playbackEvent's retry UI.
       unawaited(controller.pause().catchError((Object _) {}));
       unawaited(controller.setVolume(0).catchError((Object _) {}));
-    }
-    if (dispose) {
-      _playerController = null;
-      controller.removeEventsListener(_playbackEvent);
-      controller.dispose();
     }
   }
 
@@ -81,7 +82,8 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
         BetterPlayerConfiguration(
           startAt: startAt,
           eventListener: _playbackEvent,
-          autoDispose: true,
+          // The route owns controller teardown, including access revocation.
+          autoDispose: false,
           autoPlay: true,
           looping: widget.looping,
           fit: BoxFit.cover,
@@ -125,7 +127,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
           useAsms: isHls,
         );
         if (!mounted || widget.isPlaybackAllowed?.call() == false) {
-          controller.dispose();
+          controller.dispose(forceDispose: true);
           return;
         }
         _updateState(() {
@@ -141,7 +143,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
             useAsms: false,
           );
           if (!mounted || widget.isPlaybackAllowed?.call() == false) {
-            alt.dispose();
+            alt.dispose(forceDispose: true);
             return;
           }
           _updateState(() {

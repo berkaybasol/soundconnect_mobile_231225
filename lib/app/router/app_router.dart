@@ -8,6 +8,7 @@ import '../../modules/admin/presentation/screens/admin_venue_suggestions_screen.
 import '../../modules/admin/data/system_health_repository.dart';
 import '../../modules/admin/data/admin_user_directory_repository.dart';
 import '../../modules/admin/presentation/screens/admin_user_directory_screen.dart';
+import '../../modules/admin/presentation/screens/admin_statistics_screen.dart';
 import '../../modules/admin/data/pending_application_repository.dart';
 import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/presentation/screens/pending_applications_screen.dart';
@@ -153,6 +154,16 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminStatistics:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AdminStatisticsScreen(
+            repository: serviceLocator<AdminUserDirectoryRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+            entry: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
         );
       case AppRoutes.adminUsers:
         return MaterialPageRoute(

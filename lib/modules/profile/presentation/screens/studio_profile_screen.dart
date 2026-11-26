@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import '../../../analytics/presentation/section_navigation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -15,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/gradient_text.dart';
@@ -105,6 +107,10 @@ class StudioProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SectionNavigation.mark(
+      context,
+      SectionNavigation.profileView(ViewedProfile.studio, true),
+    );
     Theme.of(context);
     return StudioListenerAccessGate(
       builder: (context) => MultiBlocProvider(

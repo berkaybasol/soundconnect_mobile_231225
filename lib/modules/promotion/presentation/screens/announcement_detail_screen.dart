@@ -15,6 +15,7 @@ import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/presentation/widgets/like_users_sheet.dart';
 import '../../../musician_feed/presentation/musician_feed_visual_theme.dart';
+import '../../../../shared/theme/backstage_palette.dart';
 import '../../../profile/domain/media_gallery_repository.dart';
 import '../../../profile/presentation/screens/video_reel_screen.dart';
 import '../../domain/announcement_access.dart';
@@ -50,7 +51,6 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
   late final _engagement = EngagementRepositoryImpl(
     serviceLocator<ApiClient>(),
     sessions: _sessions,
-    announcementSource: widget.source,
   );
   late final _stats = InteractionStatsCubit(_engagement, sessions: _sessions);
   late final _comments = CommentThreadCubit(_engagement, sessions: _sessions);
@@ -205,11 +205,10 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
         setState(() => _error = result.error?.message ?? 'Video açılamadı.');
         return;
       }
-      final playbackId = const Uuid().v4();
-      AnalyticsTracker? tracker() =>
-          serviceLocator.isRegistered<AnalyticsTracker>()
+      final tracker = serviceLocator.isRegistered<AnalyticsTracker>()
           ? serviceLocator<AnalyticsTracker>()
           : null;
+      String? playbackId;
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => MultiBlocProvider(
@@ -237,26 +236,31 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
                     ? result.data?.accessUrl
                     : null;
               },
-              onPlaybackStarted: () {
-                if (_current) {
-                  tracker()?.recordAnnouncementVideoStart(
-                    announcementId: item.id,
-                    source: widget.source,
-                    impressionToken: widget.impressionToken,
-                    playbackId: playbackId,
-                  );
-                }
-              },
-              onPlaybackCompleted: () {
-                if (_current) {
-                  tracker()?.recordAnnouncementVideoComplete(
-                    announcementId: item.id,
-                    source: widget.source,
-                    impressionToken: widget.impressionToken,
-                    playbackId: playbackId,
-                  );
-                }
-              },
+              onPlaybackStarted: tracker == null
+                  ? null
+                  : () {
+                      if (_current) {
+                        tracker.recordAnnouncementVideoStart(
+                          announcementId: item.id,
+                          source: widget.source,
+                          impressionToken: widget.impressionToken,
+                          playbackId: playbackId ??= const Uuid().v4(),
+                        );
+                      }
+                    },
+              onPlaybackCompleted: tracker == null
+                  ? null
+                  : () {
+                      final id = playbackId;
+                      if (_current && id != null) {
+                        tracker.recordAnnouncementVideoComplete(
+                          announcementId: item.id,
+                          source: widget.source,
+                          impressionToken: widget.impressionToken,
+                          playbackId: id,
+                        );
+                      }
+                    },
             ),
           ),
         ),
@@ -281,6 +285,9 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
   Widget build(BuildContext context) => MusicianFeedThemeScope(
     child: Builder(
       builder: (context) => Scaffold(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? BackstagePalette.canvas
+            : null,
         appBar: AppBar(title: const Text('Duyuru')),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -298,7 +305,8 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
                   ],
                 ),
               )
-            : AnalyticsExposure(
+            : AnalyticsExposure.whenEnabled(
+                enabled: serviceLocator.isRegistered<AnalyticsTracker>(),
                 key: ValueKey('announcement-detail-${widget.id}'),
                 minimumVisibleDuration: Duration.zero,
                 onExposed: () {

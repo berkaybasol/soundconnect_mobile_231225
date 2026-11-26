@@ -12,6 +12,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
@@ -33,7 +34,6 @@ import 'listener_overthinking_draft_composer.dart';
 import 'listener_table_group_draft_composer.dart';
 import 'listener_playlist_manager_sheet.dart';
 import 'listener_profile_owner_content.dart';
-import 'listener_profile_theme.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_screen_support.dart';
 import 'spotify_playlist_launcher.dart';
@@ -61,8 +61,7 @@ class ListenerProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return ListenerProfileTheme(
-      inheritAppTheme: true,
+    return AppSurfaceThemeScope(
       child: BlocProvider(
         create: (_) =>
             (cubitFactory?.call() ?? serviceLocator<ListenerProfileCubit>())

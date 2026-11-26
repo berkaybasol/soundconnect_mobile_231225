@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../analytics/presentation/section_navigation.dart';
 import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/di/service_locator.dart';
@@ -120,6 +121,7 @@ class _MarketplaceAccessGateState extends State<MarketplaceAccessGate> {
 Route<T> marketplaceRoute<T>(BuildContext context, WidgetBuilder builder) {
   final session = marketplaceSessionFor(context);
   return MaterialPageRoute<T>(
+    settings: const SectionRouteSettings(UsageSection.marketplace),
     builder: (_) => MarketplaceThemeScope(
       child: MarketplaceAccessGate(expectedSession: session, builder: builder),
     ),

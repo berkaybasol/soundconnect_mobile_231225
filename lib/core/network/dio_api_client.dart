@@ -29,7 +29,8 @@ bool isPublicApiRequest(String method, String rawPath) {
   final path = Uri.tryParse(rawPath)?.path ?? rawPath;
   if (normalizedMethod == 'POST') {
     return _publicAuthPaths.contains(path) ||
-        path == '/api/v1/spotify/tracks/by-ids';
+        path == '/api/v1/spotify/tracks/by-ids' ||
+        path == '/api/v1/analytics/live-activity/guest';
   }
   if (normalizedMethod != 'GET') return false;
 
@@ -150,6 +151,7 @@ class DioApiClient implements ApiClient {
   final Dio _dio;
   final TokenStore _tokenStore;
   final AuthSessionManager? _sessionManager;
+  final void Function()? onProductMutation;
 
   static const String _requestTokenKey = 'soundconnect.request_token';
   static const String _sentRevisionKey =
@@ -169,6 +171,7 @@ class DioApiClient implements ApiClient {
     Dio? dio,
     required TokenStore tokenStore,
     AuthSessionManager? sessionManager,
+    this.onProductMutation,
     String? baseUrl,
   }) : _dio =
            dio ??
@@ -455,9 +458,13 @@ class DioApiClient implements ApiClient {
         ? _PublicSourceSessionFence(sessions)
         : null;
     try {
+      final cancelOn = requestContext?.cancelOn;
+      final cancelToken = cancelOn == null ? null : CancelToken();
+      if (cancelToken != null) cancelOn!.then((_) => cancelToken.cancel());
       final response = await _dio.request<dynamic>(
         path,
         data: body,
+        cancelToken: cancelToken,
         queryParameters: query,
         options: Options(
           method: method,
@@ -488,6 +495,17 @@ class DioApiClient implements ApiClient {
       if (payload is Map<String, dynamic>) {
         final baseResponse = BaseResponse<T>.fromJson(payload, decoder);
         if (baseResponse.success == true) {
+          final options = response.requestOptions;
+          if (method != 'GET' &&
+              options.extra[_requestTokenKey] != null &&
+              options.extra[_sentRevisionKey] ==
+                  _sessionManager?.credentialRevision &&
+              _isSameApiOrigin(path) &&
+              !options.uri.path.contains('/analytics-') &&
+              !options.uri.path.startsWith('/api/v1/analytics/') &&
+              !options.uri.path.startsWith('/api/v1/auth/')) {
+            onProductMutation?.call();
+          }
           return baseResponse.data as T;
         }
         if (baseResponse.code == 401) {
